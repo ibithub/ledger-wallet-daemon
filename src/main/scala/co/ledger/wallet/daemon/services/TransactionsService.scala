@@ -27,6 +27,7 @@ class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache, mess
           case WalletType.ETHEREUM => Right(messageBodyManager.read[CreateETHTransactionRequest](request))
           case WalletType.RIPPLE => Right(messageBodyManager.read[CreateXRPTransactionRequest](request))
           case WalletType.STELLAR => Right(messageBodyManager.read[CreateXLMTransactionRequest](request))
+          case WalletType.TEZOS => Right(messageBodyManager.read[CreateXTZTransactionRequest](request))
           case w => Left(CurrencyNotFoundException(w.name()))
         }
 
@@ -56,6 +57,9 @@ class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache, mess
             case WalletType.STELLAR =>
               val req = messageBodyManager.read[BroadcastTransactionRequest](request)
               account.broadcastXLMTransaction(req.hexTx, req.hexSig, wallet.getCurrency)
+            case WalletType.TEZOS =>
+              val req = messageBodyManager.read[BroadcastTransactionRequest](request)
+              account.broadcastXTZTransaction(req.hexTx, req.hexSig, wallet.getCurrency)
             case w => Future.failed(CurrencyNotFoundException(w.name()))
           }
         } yield r

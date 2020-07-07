@@ -208,7 +208,7 @@ object DaemonConfiguration extends Logging {
       val port = path.getInt("port")
       val url = new URL(s"$host:$port")
       // Use proxy if proxy is enabled globally and proxyuse is true or undefined
-      val proxyUse = Try(path.getBoolean("proxyuse")).getOrElse(true)
+      val proxyUse = Try(path.getBoolean("proxyuse")).getOrElse(false)
       NetUtils.urlToHost(url) -> proxyUse
     }.toMap
 

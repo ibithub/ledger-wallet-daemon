@@ -7,4 +7,5 @@ package object models {
   type ETHSignature = Array[Byte]
   type XRPSignature = Array[Byte]
   type XLMSignature = Array[Byte]
+  type XTZSignature = Array[Byte]
 }
