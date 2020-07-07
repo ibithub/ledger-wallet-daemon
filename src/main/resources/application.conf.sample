@@ -209,6 +209,15 @@ explorer = {
         disable_sync_token = false
         disable_sync_token = ${?XLM_DISABLE_SYNC_TOKEN}
       }
+      {
+        currency = tezos
+        host = "https://xtz-explorer.api.live.ledger.com/explorer"
+        host = ${?WALLET_XTZ_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_XTZ_EXPLORER_PORT}
+        disable_sync_token = false
+        disable_sync_token = ${?XTZ_DISABLE_SYNC_TOKEN}
+      }
     ]
     fees = [
     {

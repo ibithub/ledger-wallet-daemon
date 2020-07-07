@@ -9,7 +9,7 @@ import cats.syntax.traverse._
 import co.ledger.core
 import co.ledger.core._
 import co.ledger.core.implicits.{InvalidEIP55FormatException, NotEnoughFundsException, UnsupportedOperationException, _}
-import co.ledger.wallet.daemon.clients.ApiClient.XlmFeeInfo
+import co.ledger.wallet.daemon.clients.ApiClient.{XlmFeeInfo, XtzFeeInfo}
 import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.controllers.TransactionsController._
 import co.ledger.wallet.daemon.exceptions._
@@ -95,6 +95,9 @@ object Account extends Logging {
 
     def getXRPTransactionHash(rawTx: Array[Byte], signatures: XRPSignature, c: core.Currency)(implicit ec: ExecutionContext): Future[String] =
       Account.getXRPTransactionHash(rawTx, signatures, c)
+
+    def broadcastXTZTransaction(rawTx: Array[Byte], signatures: XTZSignature, c: core.Currency): Future[String] =
+      Account.broadcastXTZTransaction(rawTx, signatures, a, c)
 
     def createTransaction(transactionInfo: TransactionInfo, w: core.Wallet)(implicit ec: ExecutionContext): Future[TransactionView] =
       Account.createTransaction(transactionInfo, a, w)
@@ -282,6 +285,19 @@ object Account extends Logging {
     }
   }
 
+  def broadcastXTZTransaction(rawTx: Array[Byte], signature: XTZSignature, a: core.Account, c: core.Currency): Future[String] = {
+    c.parseUnsignedXTZTransaction(rawTx) match {
+      case Right(tx) =>
+        // set signature
+        tx.setSignature(signature)
+        val signedRawTx = tx.serialize
+        debug(s"transaction after sign '${HexUtils.valueOf(signedRawTx)}'")
+        a.asTezosLikeAccount().broadcastRawTransaction(signedRawTx)
+
+      case Left(m) => Future.failed(new UnsupportedOperationException(s"Account type not supported, can't broadcast XTZ transaction: $m"))
+    }
+  }
+
   private def createBTCTransaction(ti: BTCTransactionInfo, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = {
     val partial: Boolean = ti.partialTx.getOrElse(false)
     for {
@@ -431,6 +447,45 @@ object Account extends Logging {
     } yield view
   }
 
+  private def createXTZTransaction(ti: XTZTransactionInfo, a: core.Account, w: core.Wallet)(implicit ec: ExecutionContext): Future[TransactionView] = {
+    val tezosAccount = a.asTezosLikeAccount()
+    val builder = tezosAccount.buildTransaction()
+    val currency = w.getCurrency
+    val feeMethod = ti.feesSpeedLevel.getOrElse(FeeMethod.SLOW)
+
+    for {
+      // TODO set the correct fees value
+      baseFee <- ti.fees match {
+        case Some(fee) => Future.successful(fee)
+        case None => tezosAccount.getFees() map { res =>
+            // make sure the fees are within reasonable bounds ( in [2500 ; 30000] )
+            val boundedFees = res.asScala.max(scala.math.BigInt(2500)).min(scala.math.BigInt(30000))
+            XtzFeeInfo(boundedFees).getAmount(feeMethod) }
+      }
+      _ = builder.setFees(currency.convertAmount(baseFee))
+
+      // TODO: Sequence number ? How to handle this with concurrent transactions ?
+      _ = builder.setGasLimit(currency.convertAmount(ti.gasLimit))
+      _ = builder.setStorageLimit(ti.storageLimit.asCoreBigInt)
+
+      _ = builder.setType(ti.operationType)
+      // Various transaction types : transaction / wipe to address / delegate / undelegate
+      // The code below is only good for "transaction" type (i.e. send/receive)
+      recipient = ti.recipient
+
+      _ = if (ti.wipeToAddress) {
+        builder.wipeToAddress(recipient)
+      } else {
+        val amount = currency.convertAmount(ti.amount)
+        builder.sendToAddress(amount, recipient)
+      }
+
+      // build and parse as unsigned tx view
+      // libcore is responsible for creating/injecting the reveal operation if necessary
+      view <- builder.build().map(tx => UnsignedTezosTransactionView(tx))
+    } yield view
+  }
+
   def createTransaction(transactionInfo: TransactionInfo, a: core.Account, w: core.Wallet)(implicit ec: ExecutionContext): Future[TransactionView] = {
     info(s"Creating transaction $transactionInfo")
     val c = w.getCurrency
@@ -439,6 +494,7 @@ object Account extends Logging {
       case (ti: ETHTransactionInfo, WalletType.ETHEREUM) => createETHTransaction(ti, a, c)
       case (ti: XRPTransactionInfo, WalletType.RIPPLE) => createXRPTransaction(ti, a, c)
       case (ti: XLMTransactionInfo, WalletType.STELLAR) => createXLMTransaction(ti, a, w)
+      case (ti: XTZTransactionInfo, WalletType.TEZOS) => createXTZTransaction(ti, a, w)
       case _ => Future.failed(new UnsupportedOperationException("Account type not supported, can't create transaction"))
     }
   }

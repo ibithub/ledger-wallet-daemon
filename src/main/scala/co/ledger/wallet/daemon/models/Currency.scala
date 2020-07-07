@@ -3,7 +3,7 @@ package co.ledger.wallet.daemon.models
 import co.ledger.core
 import co.ledger.wallet.daemon.exceptions.CurrencyNotSupportedException
 import co.ledger.wallet.daemon.models.coins.Coin.NetworkParamsView
-import co.ledger.wallet.daemon.models.coins.{Bitcoin, EthereumNetworkParamView, RippleNetworkParamView, StellarNetworkParamView}
+import co.ledger.wallet.daemon.models.coins.{Bitcoin, EthereumNetworkParamView, RippleNetworkParamView, StellarNetworkParamView, TezosNetworkParamsView}
 import com.fasterxml.jackson.annotation.JsonProperty
 
 import scala.collection.JavaConverters._
@@ -16,6 +16,7 @@ object Currency {
     def parseUnsignedXRPTransaction(rawTx: Array[Byte]): Either[String, core.RippleLikeTransaction] = Currency.parseUnsignedXRPTransaction(c)(rawTx)
     def parseSignedXRPTransaction(rawTx: Array[Byte]): Either[String, core.RippleLikeTransaction] = Currency.parseSignedXRPTransaction(c)(rawTx)
     def parseUnsignedXLMTransaction(rawTx: Array[Byte]): Either[String, core.StellarLikeTransaction] = Currency.parseUnsignedXLMTransaction(c)(rawTx)
+    def parseUnsignedXTZTransaction(rawTx: Array[Byte]): Either[String, core.TezosLikeTransaction] = Currency.parseUnsignedXTZTransaction(c)(rawTx)
     def validateAddress(address: String): Boolean = Currency.validateAddress(c)(address)
     def convertAmount(amount: BigInt): core.Amount = Currency.convertAmount(c)(amount)
     def currencyView: CurrencyView = Currency.currencyView(c)
@@ -56,6 +57,12 @@ object Currency {
       case w => Left(s"$w is not Stellar")
     }
 
+  def parseUnsignedXTZTransaction(currency: core.Currency)(rawTx: Array[Byte]): Either[String, core.TezosLikeTransaction] =
+    currency.getWalletType match {
+      case core.WalletType.TEZOS => Right(core.TezosLikeTransactionBuilder.parseRawUnsignedTransaction(currency, rawTx))
+      case w => Left(s"$w is not Tezos")
+    }
+
   def validateAddress(c: core.Currency)(address: String): Boolean = core.Address.isValid(address, c)
 
   def convertAmount(c: core.Currency)(amount: BigInt): core.Amount = core.Amount.fromHex(c, amount.toString(16))
@@ -77,6 +84,7 @@ object Currency {
     case core.WalletType.ETHEREUM => EthereumNetworkParamView(coreCurrency.getEthereumLikeNetworkParameters)
     case core.WalletType.RIPPLE => RippleNetworkParamView(coreCurrency.getRippleLikeNetworkParameters)
     case core.WalletType.STELLAR => StellarNetworkParamView(coreCurrency.getStellarLikeNetworkParameters)
+    case core.WalletType.TEZOS => TezosNetworkParamsView(coreCurrency.getTezosLikeNetworkParameters)
     case _ => throw CurrencyNotSupportedException(coreCurrency.getName)
   }
 }
