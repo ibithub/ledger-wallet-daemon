@@ -301,35 +301,6 @@ class AccountsApiTest extends APIFeatureTest {
     deletePool("op_pool_mal")
   }
 
-  private val CORRECT_BODY_XRP =
-    """{""" +
-      """"account_index": 0,""" +
-      """"derivations": [""" +
-      """{""" +
-      """"owner": "main",""" +
-      """"path": "44'/144'/2'",""" +
-      """"pub_key": "03432A07E9AE9D557F160D9B1856F909E421B399E12673EEE0F4045F4F7BA151CF",""" +
-      """"chain_code": "5D958E80B0373FA505B95C1DD175B0588205D1620C56F7247B028EBCB0FB5032"""" +
-      """}""" +
-      """]""" +
-      """}"""
-
-
-  test("AccountsApi#Create XRP account") {
-    val poolName = "op_pool"
-    val walletName = "xrpWallet"
-    createPool(poolName)
-    assertWalletCreation(poolName, walletName, "ripple", Status.Ok)
-    assertCreateAccount(CORRECT_BODY_XRP, poolName, walletName, Status.Ok)
-    val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, index = 0, Status.Ok))
-    assert(addresses.nonEmpty)
-    info(s"Here are addresses : $addresses")
-    assertSyncAccount(poolName, walletName, 0)
-    val operations = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 1000, 0), Status.Ok))
-    assert(operations.nonEmpty)
-    deletePool(poolName)
-  }
-
   private val CORRECT_BODY_ETH =
     """{""" +
       """"account_index": 0,""" +

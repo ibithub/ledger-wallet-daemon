@@ -21,7 +21,7 @@ object CommonMethodValidations {
   def validateFees(feeAmount: Option[BigInt], feeLevel: Option[String]): ValidationResult = {
     ValidationResult.validate(feeAmount.isDefined
       || (feeLevel.isDefined && FeeMethod.isValid(feeLevel.get)),
-      "fee_amount or fee_level must be defined, fee_level must be one of 'FAST', 'NORMAL', 'SLOW'")
+      "fee_amount or fee_level must be defined, fees_level must be one of 'FAST', 'NORMAL', 'SLOW'")
   }
 
   def validateTimePeriod(timeInterval: String): ValidationResult = {

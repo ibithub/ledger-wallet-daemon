@@ -1,4 +1,5 @@
 database_engine = "sqlite3"
+database_engine = ${?WALLET_DAEMON_DATABASE_ENGINE}
 core_database_engine = "sqlite3"
 core_database_engine = ${?CORE_DATABASE_ENGINE}
 
@@ -23,10 +24,15 @@ postgres = {
     username = ${?CORE_PG_USER}
     password = ""
     password = ${?CORE_PG_PWD}
+    db_name = "wallet_daemon"
+    db_name = ${?WALLET_DAEMON_DB_NAME}
     db_name_prefix = ""
     db_name_prefix = ${?CORE_PG_DB_NAME_PREFIX}
     pool_size = 10
     pool_size = ${?CORE_PG_CONNECTION_POOL_SIZE_PER_WALLET_POOL}
+
+    url = "jdbc:postgresql://"${postgres.host}":"${postgres.port}"/"${postgres.db_name}"?user="${postgres.username}"&password="${postgres.password}
+    url = ${?WALLET_JDBC_URL}
 }
 
 proxy = {
@@ -309,6 +315,17 @@ explorer = {
     ethereum_ropsten = ${?WALLET_ETH_ROPSTEN_WS_ENDPOINT}
     ripple = "wss://s2.ripple.com:443"
     ripple = ${?WALLET_XRP_WS_ENDPOINT}
+  }
+}
+
+ethereum = {
+  feesfactor = {
+      slow = 0.75
+      slow = ${?ETH_SLOW_FEE_FACTOR}
+      normal = 1.0
+      normal = ${?ETH_NORMAL_FEE_FACTOR}
+      fast = 1.25
+      fast = ${?ETH_FAST_FEE_FACTOR}
   }
 }
 

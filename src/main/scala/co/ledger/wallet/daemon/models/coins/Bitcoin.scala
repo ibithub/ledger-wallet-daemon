@@ -42,8 +42,8 @@ object Bitcoin {
     )
   }
 
-  def newUnsignedTransactionView(from: core.BitcoinLikeTransaction, feesPerByte: BigInt): Future[UnsignedBitcoinTransactionView] = {
-    Future.sequence(from.getInputs.asScala.map(newUnsignedInputView)).map { unsignedInputs =>
+  def newUnsignedTransactionView(from: core.BitcoinLikeTransaction, feesPerByte: BigInt, partial: Boolean): Future[UnsignedBitcoinTransactionView] = {
+    Future.sequence(from.getInputs.asScala.map(newUnsignedInputView(_, partial))).map { unsignedInputs =>
       UnsignedBitcoinTransactionView(
         newEstimatedSizeView(from.getEstimatedSize),
         from.getFees.toString,
@@ -73,20 +73,22 @@ object Bitcoin {
     CommonBlockView(from.getHash, from.getHeight, from.getTime)
   }
 
-  private def newUnsignedInputView(from: core.BitcoinLikeInput): Future[UnsignedBitcoinInputView] = {
-    from.getPreviousTransaction() map { previousTx =>
-      val derivationPath = for {
-        path <- from.getDerivationPath.asScala
-        pubKey <- from.getPublicKeys.asScala
-      } yield (path.toString, HexUtils.valueOf(pubKey))
-      UnsignedBitcoinInputView(
-        from.getAddress,
-        from.getValue.toString,
-        from.getPreviousTxHash,
-        HexUtils.valueOf(previousTx),
-        from.getPreviousOutputIndex,
-        derivationPath.toMap)
-    }
+  private def newUnsignedInputView(from: core.BitcoinLikeInput, partial: Boolean): Future[UnsignedBitcoinInputView] = {
+    // This getter is actually retrieving behind the scene the raw tx from explorer. It should not be called when transaction is partial
+    val txHex = if (partial) Future.successful(Array.empty[Byte]) else from.getPreviousTransaction()
+    val derivationPath = for {
+      path <- from.getDerivationPath.asScala
+      pubKey <- from.getPublicKeys.asScala
+    } yield (path.toString, HexUtils.valueOf(pubKey))
+    txHex.map( fullTx =>
+    UnsignedBitcoinInputView(
+      from.getAddress,
+      from.getValue.toString,
+      from.getPreviousTxHash,
+      HexUtils.valueOf(fullTx),
+      from.getPreviousOutputIndex,
+      derivationPath.toMap)
+    )
   }
 
   private def newInputView(from: core.BitcoinLikeInput): InputView = {

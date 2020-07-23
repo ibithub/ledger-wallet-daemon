@@ -1,6 +1,9 @@
 package co.ledger.wallet.daemon.api
 
+import co.ledger.core.BitcoinLikePickingStrategy
+import co.ledger.wallet.daemon.controllers.TransactionsController.CreateBTCTransactionRequest
 import co.ledger.wallet.daemon.models.FreshAddressView
+import co.ledger.wallet.daemon.models.coins.UnsignedBitcoinTransactionView
 import co.ledger.wallet.daemon.utils.APIFeatureTest
 import com.twitter.finagle.http.Status
 import org.junit.Test
@@ -38,6 +41,38 @@ class TransactionsApiTest extends APIFeatureTest {
     assertSignTransaction(TX_TO_SIGN_BODY, poolName, walletName, 0, Status.InternalServerError)
   }
 
+  test("TransactionsApi# Create Partial Transaction") {
+    val poolName = "transactionsPartialTest"
+    createPool(poolName)
+    val walletName = "btcwallet"
+    assertWalletCreation(poolName, walletName, "bitcoin_testnet", Status.Ok)
+    assertCreateAccount(ACCOUNT_BODY, poolName, walletName, Status.Ok)
+    assertSyncAccount(poolName, walletName, 0)
+
+    val btcTxRequestNonPartial: CreateBTCTransactionRequest = CreateBTCTransactionRequest("mxZcpwZ7XBdfb4JcGLzdEP8WPQaGzeUeFU",
+      Some("16"), Some("NORMAL"), "100", Some(BitcoinLikePickingStrategy.DEEP_OUTPUTS_FIRST.toString), None, Some(false))
+    val btcTransacNonPartialRequest = server.mapper.objectMapper.writeValueAsString(btcTxRequestNonPartial)
+    info(s"Parsed Transaction : $btcTransacNonPartialRequest")
+    val txView =
+      parse[UnsignedBitcoinTransactionView](
+        assertCreateTransaction(btcTransacNonPartialRequest, poolName, walletName, 0, Status.Ok))
+
+    debug(s"TxView : $txView")
+    assert(txView.inputs.forall(!_.previousTx.isEmpty))
+
+    val btcTxRequest: CreateBTCTransactionRequest = CreateBTCTransactionRequest("mxZcpwZ7XBdfb4JcGLzdEP8WPQaGzeUeFU",
+      Some("16"), Some("NORMAL"), "100", Some(BitcoinLikePickingStrategy.DEEP_OUTPUTS_FIRST.toString), None, Some(true))
+    val btcTransacRequest = server.mapper.objectMapper.writeValueAsString(btcTxRequest)
+    info(s"Parsed Transaction : ${btcTransacRequest}")
+    val txViewPartial = parse[UnsignedBitcoinTransactionView](assertCreateTransaction(btcTransacRequest, poolName, walletName, 0, Status.Ok))
+
+    debug(s"TxView : $txViewPartial")
+    assert(txViewPartial.inputs.forall(_.previousTx.isEmpty))
+  }
+
+  test("TransactionsApi#Create and sign BTC transaction") {
+
+  }
   test("AccountsApi#Broadcast signed transaction") {
     val walletName = "bitcoin_testnet"
     assertWalletCreation(poolName, walletName, "bitcoin_testnet", Status.Ok)

@@ -115,6 +115,7 @@ object TransactionsController {
                                          amount: String,
                                          gas_limit: Option[String],
                                          gas_price: Option[String],
+                                         fees_level: Option[String],
                                          contract: Option[String]
                                         ) extends CreateTransactionRequest {
     def amountValue: BigInt = BigInt(amount)
@@ -123,7 +124,10 @@ object TransactionsController {
 
     def gasPriceValue: Option[BigInt] = gas_price.map(BigInt(_))
 
-    override def transactionInfo: TransactionInfo = ETHTransactionInfo(recipient, amountValue, gasLimitValue, gasPriceValue, contract)
+    override def transactionInfo: TransactionInfo = ETHTransactionInfo(recipient, amountValue, gasLimitValue, gasPriceValue, fees_level, contract)
+
+    @MethodValidation
+    def validateFees: ValidationResult = CommonMethodValidations.validateFees(gasPriceValue, fees_level)
   }
 
   case class CreateBTCTransactionRequest(recipient: String,
@@ -132,7 +136,7 @@ object TransactionsController {
                                          amount: String,
                                          merge_utxo_strategy: Option[String],
                                          exclude_utxos: Option[Map[String, Int]],
-                                         partialTx: Option[Boolean]
+                                         partial_tx: Option[Boolean]
                                         ) extends CreateTransactionRequest {
     def amountValue: BigInt = BigInt(amount)
 
@@ -142,7 +146,7 @@ object TransactionsController {
       recipient, feesPerByteValue, fees_level, amountValue,
       merge_utxo_strategy.map(BitcoinLikePickingStrategy.valueOf).getOrElse(BitcoinLikePickingStrategy.OPTIMIZE_SIZE),
       exclude_utxos.getOrElse(Map[String, Int]()),
-      partialTx
+      partial_tx
     )
 
     @MethodValidation
@@ -156,6 +160,7 @@ object TransactionsController {
   case class CreateXRPTransactionRequest(send_to: List[XRPSendToRequest], // Send funds to the given address.
                                          wipe_to: Option[String], // Send all available funds to the given address.
                                          fees: Option[String], // Fees (in drop) the originator is willing to pay
+                                         fees_level: Option[String],
                                          memos: List[RippleLikeMemo], // Memos to add for this transaction
                                          destination_tag: Option[Long] // An arbitrary unsigned 32-bit integer that identifies a reason for payment or a non-Ripple account
                                         ) extends CreateTransactionRequest {
@@ -163,23 +168,40 @@ object TransactionsController {
 
     def feesValue: Option[BigInt] = fees.map(BigInt(_))
 
-    override def transactionInfo: TransactionInfo = XRPTransactionInfo(sendToValue, wipe_to, feesValue: Option[BigInt], memos, destination_tag)
+    override def transactionInfo: TransactionInfo = XRPTransactionInfo(sendToValue, wipe_to, feesValue: Option[BigInt], fees_level: Option[String], memos, destination_tag)
+
+    @MethodValidation
+    def validateFees: ValidationResult = CommonMethodValidations.validateFees(feesValue, fees_level)
   }
 
   trait TransactionInfo
 
   case class BTCTransactionInfo(recipient: String,
-                                feeAmount: Option[BigInt],
-                                feeLevel: Option[String],
+                                fees: Option[BigInt],
+                                feesLevel: Option[String],
                                 amount: BigInt,
                                 pickingStrategy: BitcoinLikePickingStrategy,
                                 excludeUtxos: Map[String, Int],
                                 partialTx: Option[Boolean]) extends TransactionInfo {
-    lazy val feeMethod: Option[FeeMethod] = feeLevel.map { level => FeeMethod.from(level) }
+    lazy val feesSpeedLevel: Option[FeeMethod] = feesLevel.map { feesLevel => FeeMethod.from(feesLevel) }
   }
 
-  case class ETHTransactionInfo(recipient: String, amount: BigInt, gasLimit: Option[BigInt], gasPrice: Option[BigInt], contract: Option[String]) extends TransactionInfo
+  case class ETHTransactionInfo(recipient: String,
+                                amount: BigInt,
+                                gasLimit: Option[BigInt],
+                                gasPrice: Option[BigInt],
+                                feesLevel: Option[String],
+                                contract: Option[String]) extends TransactionInfo {
+    lazy val feesSpeedLevel: Option[FeeMethod] = feesLevel.map { feesLevel => FeeMethod.from(feesLevel) }
+  }
 
-  case class XRPTransactionInfo(sendTo: List[XRPSendTo], wipeTo: Option[String], fees: Option[BigInt], memos: List[RippleLikeMemo], destinationTag: Option[Long]) extends TransactionInfo
+  case class XRPTransactionInfo(sendTo: List[XRPSendTo],
+                                wipeTo: Option[String],
+                                fees: Option[BigInt],
+                                feesLevel: Option[String],
+                                memos: List[RippleLikeMemo],
+                                destinationTag: Option[Long]) extends TransactionInfo {
+    lazy val feesSpeedLevel: Option[FeeMethod] = feesLevel.map { feesLevel => FeeMethod.from(feesLevel) }
+  }
 
 }

@@ -228,12 +228,16 @@ object DaemonConfiguration extends Logging {
       currency -> FeesPath(path)
     }.toMap
 
-
     val ws = explorer.getObject("ws").unwrapped().asScala.toMap.mapValues(_.toString)
     ExplorerConfig(
       ApiConfig(fallbackTimeout, paths, proxyUseMap, fees),
       ClientConnectionConfig(connectionPoolSize, retryBackoffDelta, connectionPoolTtl, retryTtl, retryMin, retryPercent), ws)
   }
+
+
+  val ETH_SLOW_FEES_FACTOR: Double = Try(config.getDouble("ethereum.feesfactor.slow")).getOrElse(0.75)
+  val ETH_NORMAL_FEES_FACTOR: Double = Try(config.getDouble("ethereum.feesfactor.normal")).getOrElse(1.0)
+  val ETH_FAST_FEES_FACTOR: Double = Try(config.getDouble("ethereum.feesfactor.fast")).getOrElse(1.25)
 
   val rippleLastLedgerSequenceOffset: Int = {
     if (config.hasPath("ripple_last_ledger_sequence_offset")) {

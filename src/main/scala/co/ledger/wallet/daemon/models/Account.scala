@@ -253,16 +253,17 @@ object Account extends Logging {
   private def createBTCTransaction(ti: BTCTransactionInfo, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = {
     val partial: Boolean = ti.partialTx.getOrElse(false)
     for {
-      feesPerByte <- ti.feeAmount match {
-        case Some(amount) => Future.successful(c.convertAmount(amount))
-        case None => ClientFactory.apiClient.getFees(c.getName).map(f => c.convertAmount(f.getAmount(ti.feeMethod.get)))
+      // If fees are provided use it as it, else take the feeMethod to calculate it
+      feesPerByte <- ti.fees match {
+        case Some(amount) => Future.successful(amount)
+        case None => ClientFactory.apiClient.getFees(c.getName).map(f => f.getAmount(ti.feesSpeedLevel.getOrElse(FeeMethod.NORMAL)))
       }
       tx <- a.asBitcoinLikeAccount().buildTransaction(partial)
         .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
         .pickInputs(ti.pickingStrategy, UnsignedInteger.MAX_VALUE.intValue())
-        .setFeesPerByte(feesPerByte)
+        .setFeesPerByte(c.convertAmount(feesPerByte))
         .build()
-      v <- Bitcoin.newUnsignedTransactionView(tx, feesPerByte.toBigInt.asScala)
+      v <- Bitcoin.newUnsignedTransactionView(tx, feesPerByte, partial)
     } yield v
   }
 
@@ -273,8 +274,8 @@ object Account extends Logging {
         case None => ethereumTransactionBuilder(ti, a, c)
       }
       gasPrice <- ti.gasPrice match {
-        case Some(amount) => Future.successful(amount)
-        case None => ClientFactory.apiClient.getGasPrice(c.getName)
+        case Some(gPrice) => Future.successful(gPrice)
+        case None => ClientFactory.apiClient.getGasPrice(c.getName).map(ethInfo => ethInfo.getAmount(ti.feesSpeedLevel.getOrElse(FeeMethod.NORMAL)))
       }
       v <- transactionBuilder.setGasPrice(c.convertAmount(gasPrice)).build()
     } yield UnsignedEthereumTransactionView(v)
@@ -326,13 +327,18 @@ object Account extends Logging {
     ti.destinationTag.foreach(builder.setDestinationTag)
 
     for {
-      fees <- ti.fees.fold(ClientFactory.apiClient.getFeesRipple)(Future.successful)
+      feeMethod <- Future.successful(ti.feesSpeedLevel.getOrElse(FeeMethod.NORMAL))
+      fees <- ti.fees.fold(ClientFactory.apiClient.getFeesRipple.map(_.getAmount(feeMethod)))(Future.successful)
       _ = builder.setFees(c.convertAmount(fees))
       view <- builder.build().map(UnsignedRippleTransactionView.apply)
-    } yield view
+    } yield {
+      info(s"Ripple Transaction created = $view Using fees method ($feeMethod) using network fees : ${ti.fees.isEmpty}")
+      view
+    }
   }
 
   def createTransaction(transactionInfo: TransactionInfo, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = {
+    info(s"Creating transaction $transactionInfo")
     (transactionInfo, c.getWalletType) match {
       case (ti: BTCTransactionInfo, WalletType.BITCOIN) => createBTCTransaction(ti, a, c)
       case (ti: ETHTransactionInfo, WalletType.ETHEREUM) => createETHTransaction(ti, a, c)

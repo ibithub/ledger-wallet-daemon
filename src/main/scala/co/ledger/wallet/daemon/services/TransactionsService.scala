@@ -28,6 +28,7 @@ class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache, mess
           case WalletType.RIPPLE => Right(messageBodyManager.read[CreateXRPTransactionRequest](request))
           case w => Left(CurrencyNotFoundException(w.name()))
         }
+
         transactionInfoEither match {
           case Right(transactionInfo) =>
             account.createTransaction(transactionInfo.transactionInfo, wallet.getCurrency)

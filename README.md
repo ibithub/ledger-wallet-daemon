@@ -117,6 +117,19 @@ We are supporting SSL connections.
 3. It is possible to set the connection pool size per wallet pool (e.g. by client) thanks to: 
 `PG_CONNECTION_POOL_SIZE_PER_WALLET_POOL`, which is equal to `2` by default and also a prefix name for every databases created by the libcore by setting `CORE_PG_DB_NAME_PREFIX` example : `CORE_PG_DB_NAME_PREFIX=WD_`
 
+## Use postgreSQL for storing Wallet daemon database
+
+By default the wallet daemon will store data in a SQLite3 database. Using postgreSQL can be done by setting some environment
+variables:
+
+- [Mandatory] Set `WALLET_DAEMON_DATABASE_ENGINE` to `postgres`
+- [Mandatory] Set `CORE_PG_HOST`, `CORE_PG_PORT`, `CORE_PG_USER` and `CORE_PG_PWD` which are respectively the hostname, 
+  the port exposed by postgres the user and the password to use for establishing the connection.
+- [Optional] Set `WALLET_DAEMON_DB_NAME` with the name of the database you want to use (by default `wallet_daemon`)
+- [Optional] Alternatively you can use a custom JDBC by setting `WALLET_JDBC_URL`. This will override all previously set
+  configuration to use strictly the JDBC URL you provided.
+                 
+
 ---
 ## Run Dockerized Wallet Daemon
 Please have a look on  [Docker compose configuration file](docker-compose.yml) for more details on configuration. 
