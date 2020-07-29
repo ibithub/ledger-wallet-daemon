@@ -248,6 +248,7 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
       val disableSyncToken: Boolean = DaemonConfiguration.explorer.api.paths.get(currencyName).exists(_.disableSyncToken)
       walletConfig.putBoolean("DEACTIVATE_SYNC_TOKEN", disableSyncToken)
       walletConfig.putInt("RIPPLE_LAST_LEDGER_SEQUENCE_OFFSET", DaemonConfiguration.rippleLastLedgerSequenceOffset)
+      walletConfig.putString("TEZOS_XPUB_CURVE", "ED25519")
 
       if (isNativeSegwit) {
         walletConfig.putString("KEYCHAIN_ENGINE", "BIP173_P2WPKH")
