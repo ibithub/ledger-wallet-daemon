@@ -89,6 +89,24 @@ case class TezosTransactionView(
                                  ) extends TransactionView
 
 object TezosTransactionView {
+  def apply(tx: core.TezosLikeTransaction): TezosTransactionView = {
+    TezosTransactionView(
+      tx.getType,
+      tx.getHash,
+      Option(tx.getFees).map(fees => fees.toString),
+      Option(tx.getReceiver).map(recv => recv.toBase58),
+      tx.getSender.toBase58,
+      tx.getValue.toString,
+      tx.getDate,
+      HexUtils.valueOf(tx.getSigningPubKey),
+      tx.getCounter.asScala,
+      tx.getGasLimit.toBigInt.asScala,
+      tx.getStorageLimit.asScala,
+      tx.getBlockHash,
+      tx.getStatus
+    )
+  }
+
   def apply(op: core.Operation): TezosTransactionView = {
     val tx = op.asTezosLikeOperation().getTransaction
 
@@ -96,8 +114,8 @@ object TezosTransactionView {
       tx.getType,
       tx.getHash,
       Option(tx.getFees).map(fees => fees.toString),
-      Option(tx.getReceiver).map(recv => recv.toString),
-      tx.getSender.toString,
+      Option(tx.getReceiver).map(recv => recv.toBase58),
+      tx.getSender.toBase58,
       tx.getValue.toString,
       tx.getDate,
       HexUtils.valueOf(tx.getSigningPubKey),
