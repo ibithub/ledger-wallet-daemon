@@ -245,7 +245,7 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
       // it creates a wrong URL if not hardcoded, like https://xtz-explorer.api.live.ledger.com:-1/explorer:443
       // which doesn't work because Core explorer HTTP calls end up being
       // GET https://xtz-explorer.api.live.ledger.com:-1/explorer:443/block/head
-      } else if (currencyName == "tezos"){
+      } else if (currencyName == "tezos") {
         walletConfig.putString("BLOCKCHAIN_EXPLORER_API_ENDPOINT", "https://xtz-explorer.api.live.ledger.com/explorer")
       } else {
         walletConfig.putString("BLOCKCHAIN_EXPLORER_API_ENDPOINT", s"${apiUrl.getProtocol}://${apiUrl.getHost}:${apiUrl.getPort}")

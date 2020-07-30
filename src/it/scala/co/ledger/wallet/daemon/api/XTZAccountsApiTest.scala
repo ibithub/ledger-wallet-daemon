@@ -4,7 +4,7 @@ package co.ledger.wallet.daemon.api
 import co.ledger.wallet.daemon.controllers.TransactionsController.CreateXTZTransactionRequest
 import co.ledger.core.TezosOperationTag
 import co.ledger.wallet.daemon.models.FreshAddressView
-// import co.ledger.wallet.daemon.models.coins.TezosTransactionView
+import co.ledger.wallet.daemon.models.coins.TezosTransactionView
 import co.ledger.wallet.daemon.services.OperationQueryParams
 import co.ledger.wallet.daemon.utils.APIFeatureTest
 import com.fasterxml.jackson.databind.JsonNode
@@ -62,7 +62,7 @@ class XTZAccountsApiTest extends APIFeatureTest {
     assert(operations.nonEmpty)
 
     // No fees, no feesLevel provided
-    // val add = addresses.head.address
+    val add = addresses.head.address
     val receiverAddress = "tz1fizckUHrisN2JXZRWEBvtq4xRQwPhoirQ"
 
     val txBadRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1000", false, "800", "800", None, None)
@@ -75,13 +75,13 @@ class XTZAccountsApiTest extends APIFeatureTest {
     val txTooPoorRequestJson = server.mapper.objectMapper.writeValueAsString(txTooPoorRequest)
     assertCreateTransaction(txTooPoorRequestJson, poolName, walletName, 0, Status.BadRequest)
 
-    // // Check No fees amount provided with fee_level provided
-    // val txRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1", false, "8", "8", None, Some("FAST"))
-    // val txRequestJson = server.mapper.objectMapper.writeValueAsString(txRequest)
-    // val transactionView = parse[TezosTransactionView](assertCreateTransaction(txRequestJson, poolName, walletName, 0, Status.Ok))
-    // info(s"Here is transaction view : $transactionView")
-    // assert(transactionView.receiver == Some(receiverAddress))
-    // assert(transactionView.sender == add)
+    // Check No fees amount provided with fee_level provided
+    val txRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1", false, "8", "8", None, Some("SLOW"))
+    val txRequestJson = server.mapper.objectMapper.writeValueAsString(txRequest)
+    val transactionView = parse[TezosTransactionView](assertCreateTransaction(txRequestJson, poolName, walletName, 0, Status.Ok))
+    info(s"Here is transaction view : $transactionView")
+    assert(transactionView.receiver == Some(receiverAddress))
+    assert(transactionView.sender == add)
 
     // // Check even if fees are higher or lower than networks one, they override network fees
     // val highMaxFee: Int = 1234567
