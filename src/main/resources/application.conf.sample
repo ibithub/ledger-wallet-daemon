@@ -211,6 +211,7 @@ explorer = {
       }
       {
         currency = tezos
+        version = "v3"
         host = "https://xtz-explorer.api.live.ledger.com/explorer"
         host = ${?WALLET_XTZ_EXPLORER_ENDPOINT}
         port = 443
@@ -333,6 +334,15 @@ ethereum = {
       fast = 1.25
       fast = ${?ETH_FAST_FEE_FACTOR}
   }
+}
+
+tezos = {
+node = {
+        host = "https://xtz-node.api.live.ledger.com"
+        host = ${?XTZ_NODE}
+        port = 443
+        port = ${?XTZ_NODE_PORT}
+}
 }
 
 native_segwit_currencies = ["bitcoin", "bitcoin_testnet", "litecoin", "qtum"]

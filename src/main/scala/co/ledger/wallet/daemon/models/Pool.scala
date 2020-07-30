@@ -241,6 +241,12 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
       if (currencyName == "ripple") {
         walletConfig.putString("BLOCKCHAIN_EXPLORER_API_ENDPOINT", s"${apiUrl.getProtocol}://${apiUrl.getHost}")
         walletConfig.putString("BLOCKCHAIN_EXPLORER_PORT", apiUrl.getPort.toString)
+      // FIXME get help about having a path already inside the endpoint
+      // it creates a wrong URL if not hardcoded, like https://xtz-explorer.api.live.ledger.com:-1/explorer:443
+      // which doesn't work because Core explorer HTTP calls end up being
+      // GET https://xtz-explorer.api.live.ledger.com:-1/explorer:443/block/head
+      } else if (currencyName == "tezos"){
+        walletConfig.putString("BLOCKCHAIN_EXPLORER_API_ENDPOINT", "https://xtz-explorer.api.live.ledger.com/explorer")
       } else {
         walletConfig.putString("BLOCKCHAIN_EXPLORER_API_ENDPOINT", s"${apiUrl.getProtocol}://${apiUrl.getHost}:${apiUrl.getPort}")
       }
@@ -248,7 +254,14 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
       val disableSyncToken: Boolean = DaemonConfiguration.explorer.api.paths.get(currencyName).exists(_.disableSyncToken)
       walletConfig.putBoolean("DEACTIVATE_SYNC_TOKEN", disableSyncToken)
       walletConfig.putInt("RIPPLE_LAST_LEDGER_SEQUENCE_OFFSET", DaemonConfiguration.rippleLastLedgerSequenceOffset)
-      walletConfig.putString("TEZOS_XPUB_CURVE", "ED25519")
+
+      // Tezos specific configuration
+      if (currencyName == "tezos") {
+        walletConfig.putString("TEZOS_XPUB_CURVE", "ED25519")
+        val tezosNodeUrl = new URL(s"${DaemonConfiguration.TEZOS_NODE}")
+        walletConfig.putString("TEZOS_NODE", s"${tezosNodeUrl.getProtocol}://${tezosNodeUrl.getHost}")
+        walletConfig.putString("BLOCKCHAIN_EXPLORER_ENGINE", "TZSTATS_API")
+      }
 
       if (isNativeSegwit) {
         walletConfig.putString("KEYCHAIN_ENGINE", "BIP173_P2WPKH")
