@@ -1,9 +1,10 @@
 package co.ledger.wallet.daemon.api
 
 // import co.ledger.wallet.daemon.clients.ClientFactory
-// import co.ledger.wallet.daemon.controllers.TransactionsController.CreateXTZTransactionRequest
+import co.ledger.wallet.daemon.controllers.TransactionsController.CreateXTZTransactionRequest
+import co.ledger.core.TezosOperationTag
 import co.ledger.wallet.daemon.models.FreshAddressView
-// import co.ledger.wallet.daemon.models.coins.UnsignedRippleTransactionView
+// import co.ledger.wallet.daemon.models.coins.TezosTransactionView
 import co.ledger.wallet.daemon.services.OperationQueryParams
 import co.ledger.wallet.daemon.utils.APIFeatureTest
 import com.fasterxml.jackson.databind.JsonNode
@@ -14,7 +15,7 @@ import com.twitter.finagle.http.Status
 
 class XTZAccountsApiTest extends APIFeatureTest {
 
-  val poolName = "xtz_test_pool"
+  val poolName = "tez_test_pool"
 
   override def beforeAll(): Unit = {
     createPool(poolName)
@@ -49,58 +50,62 @@ class XTZAccountsApiTest extends APIFeatureTest {
     assert(operations.nonEmpty)
   }
 
-  // test("Create XRP Transaction") {
-  //   val walletName = "xrpWalletForCreateTX"
-  //   assertWalletCreation(poolName, walletName, "ripple", Status.Ok)
-  //   assertCreateAccount(CORRECT_BODY_XRP, poolName, walletName, Status.Ok)
-  //   val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, index = 0, Status.Ok))
-  //   assert(addresses.nonEmpty)
-  //   info(s"Here are addresses : $addresses")
-  //   assertSyncAccount(poolName, walletName, 0)
-  //   val operations = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 1000, 0), Status.Ok))
-  //   assert(operations.nonEmpty)
+  test("Create XTZ Transaction") {
+    val walletName = "xtzWalletForCreateTX"
+    assertWalletCreation(poolName, walletName, "tezos", Status.Ok)
+    assertCreateAccount(CORRECT_BODY_XTZ, poolName, walletName, Status.Ok)
+    val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, index = 0, Status.Ok))
+    assert(addresses.nonEmpty)
+    info(s"Here are addresses : $addresses")
+    assertSyncAccount(poolName, walletName, 0)
+    val operations = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 1000, 0), Status.Ok))
+    assert(operations.nonEmpty)
 
-  //   val networkFee = Await.result(ClientFactory.apiClient.getFeesRipple, 10.second)
-  //   info(s"Network fee = $networkFee")
-  //   // No fees, no feesLevel provided
-  //   val sendToAddresses = List(addresses.head.address).map(add => XRPSendToRequest("10000", add))
+    // No fees, no feesLevel provided
+    // val add = addresses.head.address
+    val receiverAddress = "tz1fizckUHrisN2JXZRWEBvtq4xRQwPhoirQ"
 
-  //   val txBadRequest = CreateXRPTransactionRequest(sendToAddresses, None, None, None, List.empty, None)
-  //   val txBadRequestJson = server.mapper.objectMapper.writeValueAsString(txBadRequest)
-  //   // Neither fees nor fees_level has been provided, expect failure due to MethodValidation check
-  //   assertCreateTransaction(txBadRequestJson, poolName, walletName, 0, Status.BadRequest)
+    val txBadRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1000", false, "800", "800", None, None)
+    val txBadRequestJson = server.mapper.objectMapper.writeValueAsString(txBadRequest)
+    // Neither fees nor fees_level has been provided, expect failure due to MethodValidation check
+    assertCreateTransaction(txBadRequestJson, poolName, walletName, 0, Status.BadRequest)
 
-  //   // Check No fees amount provided with fee_level provided
-  //   val txRequest = CreateXRPTransactionRequest(sendToAddresses, None, None, Some("FAST"), List.empty, None)
-  //   val txRequestJson = server.mapper.objectMapper.writeValueAsString(txRequest)
-  //   val transactionView = parse[UnsignedRippleTransactionView](assertCreateTransaction(txRequestJson, poolName, walletName, 0, Status.Ok))
-  //   info(s"Here is transaction view : $transactionView")
-  //   assert(transactionView.receiver == sendToAddresses.head.address)
-  //   assert(transactionView.sender == sendToAddresses.head.address)
+    // Not enough funds error
+    val txTooPoorRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "80000000", false, "800", "800", None, Some("FAST"))
+    val txTooPoorRequestJson = server.mapper.objectMapper.writeValueAsString(txTooPoorRequest)
+    assertCreateTransaction(txTooPoorRequestJson, poolName, walletName, 0, Status.BadRequest)
 
-  //   // Check even if fees are higher or lower than networks one, they override network fees
-  //   val highMaxFee: Int = 1234567
-  //   val lowMaxFee: Int = 1
-  //   val txRequestSlow = CreateXRPTransactionRequest(sendToAddresses, None,
-  //     Some(String.valueOf(highMaxFee)), Some("SLOW"), List.empty, None)
-  //   val txRequestJsonSlow = server.mapper.objectMapper.writeValueAsString(txRequestSlow)
-  //   val transactionViewSlow = parse[UnsignedRippleTransactionView](assertCreateTransaction(txRequestJsonSlow, poolName, walletName, 0, Status.Ok))
-  //   info(s"Here is transaction view : $transactionViewSlow")
-  //   assert(BigInt(transactionViewSlow.fees) == BigInt(highMaxFee))
+    // // Check No fees amount provided with fee_level provided
+    // val txRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1", false, "8", "8", None, Some("FAST"))
+    // val txRequestJson = server.mapper.objectMapper.writeValueAsString(txRequest)
+    // val transactionView = parse[TezosTransactionView](assertCreateTransaction(txRequestJson, poolName, walletName, 0, Status.Ok))
+    // info(s"Here is transaction view : $transactionView")
+    // assert(transactionView.receiver == Some(receiverAddress))
+    // assert(transactionView.sender == add)
 
-  //   val txRequestFast = CreateXRPTransactionRequest(sendToAddresses, None,
-  //     Some(String.valueOf(lowMaxFee)), Some("FAST"), List.empty, None)
-  //   val txRequestJsonFast = server.mapper.objectMapper.writeValueAsString(txRequestFast)
-  //   val transactionViewFast = parse[UnsignedRippleTransactionView](assertCreateTransaction(txRequestJsonFast, poolName, walletName, 0, Status.Ok))
-  //   info(s"Here is transaction view : $transactionViewFast")
-  //   assert(BigInt(transactionViewFast.fees) == BigInt(lowMaxFee))
+    // // Check even if fees are higher or lower than networks one, they override network fees
+    // val highMaxFee: Int = 1234567
+    // val lowMaxFee: Int = 1
+    // val txRequestSlow = CreateXRPTransactionRequest(sendToAddresses, None,
+    //   Some(String.valueOf(highMaxFee)), Some("SLOW"), List.empty, None)
+    // val txRequestJsonSlow = server.mapper.objectMapper.writeValueAsString(txRequestSlow)
+    // val transactionViewSlow = parse[UnsignedRippleTransactionView](assertCreateTransaction(txRequestJsonSlow, poolName, walletName, 0, Status.Ok))
+    // info(s"Here is transaction view : $transactionViewSlow")
+    // assert(BigInt(transactionViewSlow.fees) == BigInt(highMaxFee))
 
-  // }
+    // val txRequestFast = CreateXRPTransactionRequest(sendToAddresses, None,
+    //   Some(String.valueOf(lowMaxFee)), Some("FAST"), List.empty, None)
+    // val txRequestJsonFast = server.mapper.objectMapper.writeValueAsString(txRequestFast)
+    // val transactionViewFast = parse[UnsignedRippleTransactionView](assertCreateTransaction(txRequestJsonFast, poolName, walletName, 0, Status.Ok))
+    // info(s"Here is transaction view : $transactionViewFast")
+    // assert(BigInt(transactionViewFast.fees) == BigInt(lowMaxFee))
+
+  }
 
 
-  // def transactionRequest(poolName: String, walletName: String, accountIdx: Int, xrpTransacRequest: CreateXRPTransactionRequest): String = {
-  //   val txInfo = server.mapper.objectMapper.writeValueAsString(xrpTransacRequest)
-  //   s"""{"pool_name:"$poolName","$walletName":"xrpWallet","account_index":$accountIdx, $txInfo"""
+  // def transactionRequest(poolName: String, walletName: String, accountIdx: Int, xtzTransacRequest: CreateXTZTransactionRequest): String = {
+  //   val txInfo = server.mapper.objectMapper.writeValueAsString(xtzTransacRequest)
+  //   s"""{"pool_name:"$poolName","$walletName":"xtzWallet","account_index":$accountIdx, $txInfo"""
   // }
 
 }

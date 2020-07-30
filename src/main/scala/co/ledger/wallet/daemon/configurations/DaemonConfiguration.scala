@@ -228,6 +228,7 @@ object DaemonConfiguration extends Logging {
     * We expose here ability to configure factor for estimated gas limit amplification
     */
   val ETH_SMART_CONTRACT_GAS_LIMIT_FACTOR: Double = Try(config.getDouble("ethereum.gaslimitfactor")).getOrElse(2)
+  val TEZOS_NODE: String = Try(config.getString("tezos.node.host")).getOrElse("https://xtz-node.api.live.ledger.com")
 
   val rippleLastLedgerSequenceOffset: Int = {
     if (config.hasPath("ripple_last_ledger_sequence_offset")) {
