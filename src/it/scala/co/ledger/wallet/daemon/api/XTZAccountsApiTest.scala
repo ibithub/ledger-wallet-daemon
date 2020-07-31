@@ -1,17 +1,13 @@
 package co.ledger.wallet.daemon.api
 
-// import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.controllers.TransactionsController.CreateXTZTransactionRequest
 import co.ledger.core.TezosOperationTag
 import co.ledger.wallet.daemon.models.FreshAddressView
-import co.ledger.wallet.daemon.models.coins.TezosTransactionView
+import co.ledger.wallet.daemon.models.coins.UnsignedTezosTransactionView
 import co.ledger.wallet.daemon.services.OperationQueryParams
 import co.ledger.wallet.daemon.utils.APIFeatureTest
 import com.fasterxml.jackson.databind.JsonNode
 import com.twitter.finagle.http.Status
-
-// import scala.concurrent.Await
-// import scala.concurrent.duration._
 
 class XTZAccountsApiTest extends APIFeatureTest {
 
@@ -78,35 +74,26 @@ class XTZAccountsApiTest extends APIFeatureTest {
     // Check No fees amount provided with fee_level provided
     val txRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1", false, "8", "8", None, Some("SLOW"))
     val txRequestJson = server.mapper.objectMapper.writeValueAsString(txRequest)
-    val transactionView = parse[TezosTransactionView](assertCreateTransaction(txRequestJson, poolName, walletName, 0, Status.Ok))
+    val transactionView = parse[UnsignedTezosTransactionView](assertCreateTransaction(txRequestJson, poolName, walletName, 0, Status.Ok))
     info(s"Here is transaction view : $transactionView")
+    assert(transactionView.operationType == TezosOperationTag.OPERATION_TAG_TRANSACTION)
+    assert(transactionView.value == "1")
+    assert(transactionView.signing_pubkey == "03432A07E9AE9D557F160D9B1856F909E421B399E12673EEE0F4045F4F7BA151CF")
     assert(transactionView.receiver == Some(receiverAddress))
     assert(transactionView.sender == add)
 
-    // // Check even if fees are higher or lower than networks one, they override network fees
-    // val highMaxFee: Int = 1234567
-    // val lowMaxFee: Int = 1
-    // val txRequestSlow = CreateXRPTransactionRequest(sendToAddresses, None,
-    //   Some(String.valueOf(highMaxFee)), Some("SLOW"), List.empty, None)
-    // val txRequestJsonSlow = server.mapper.objectMapper.writeValueAsString(txRequestSlow)
-    // val transactionViewSlow = parse[UnsignedRippleTransactionView](assertCreateTransaction(txRequestJsonSlow, poolName, walletName, 0, Status.Ok))
-    // info(s"Here is transaction view : $transactionViewSlow")
-    // assert(BigInt(transactionViewSlow.fees) == BigInt(highMaxFee))
+    // Check normal speed fees multiplier
+    val txNormalSpeedRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1", false, "8", "8", Some("322"), Some("NORMAL"))
+    val txNormalSpeedRequestJson = server.mapper.objectMapper.writeValueAsString(txNormalSpeedRequest)
+    val normalSpeedTransactionView = parse[UnsignedTezosTransactionView](assertCreateTransaction(txNormalSpeedRequestJson, poolName, walletName, 0, Status.Ok))
+    info(s"Here is transaction view : $normalSpeedTransactionView")
+    assert(normalSpeedTransactionView.fees == Some("644"))
 
-    // val txRequestFast = CreateXRPTransactionRequest(sendToAddresses, None,
-    //   Some(String.valueOf(lowMaxFee)), Some("FAST"), List.empty, None)
-    // val txRequestJsonFast = server.mapper.objectMapper.writeValueAsString(txRequestFast)
-    // val transactionViewFast = parse[UnsignedRippleTransactionView](assertCreateTransaction(txRequestJsonFast, poolName, walletName, 0, Status.Ok))
-    // info(s"Here is transaction view : $transactionViewFast")
-    // assert(BigInt(transactionViewFast.fees) == BigInt(lowMaxFee))
-
+    // Check fast speed multiplier
+    val txFastSpeedRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1", false, "8", "8", Some("923"), Some("NORMAL"))
+    val txFastSpeedRequestJson = server.mapper.objectMapper.writeValueAsString(txFastSpeedRequest)
+    val fastSpeedTransactionView = parse[UnsignedTezosTransactionView](assertCreateTransaction(txFastSpeedRequestJson, poolName, walletName, 0, Status.Ok))
+    info(s"Here is transaction view : $fastSpeedTransactionView")
+    assert(fastSpeedTransactionView.fees == Some("1846"))
   }
-
-
-  // def transactionRequest(poolName: String, walletName: String, accountIdx: Int, xtzTransacRequest: CreateXTZTransactionRequest): String = {
-  //   val txInfo = server.mapper.objectMapper.writeValueAsString(xtzTransacRequest)
-  //   s"""{"pool_name:"$poolName","$walletName":"xtzWallet","account_index":$accountIdx, $txInfo"""
-  // }
-
 }
-

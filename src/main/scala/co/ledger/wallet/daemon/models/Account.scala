@@ -497,7 +497,7 @@ object Account extends Logging {
       // build and parse as unsigned tx view
       // libcore is responsible for creating/injecting the reveal operation if necessary
       // FIXME so what happens when there are multiple operations in the builder's result ?
-      view <- builder.build().map(tx => TezosTransactionView(tx))
+      view <- builder.build().map(tx => UnsignedTezosTransactionView(tx))
     } yield view
   }
 
