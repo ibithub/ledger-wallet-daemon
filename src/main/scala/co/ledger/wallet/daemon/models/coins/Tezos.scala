@@ -129,11 +129,37 @@ object TezosTransactionView {
 }
 
 case class UnsignedTezosTransactionView(
+                                   @JsonProperty("type") operationType: core.TezosOperationTag,
+                                   @JsonProperty("hash") hash: String,
+                                   @JsonProperty("fees") fees: Option[String],
+                                   @JsonProperty("receiver") receiver: Option[String],
+                                   @JsonProperty("sender") sender: String,
+                                   @JsonProperty("value") value: String,
+                                   @JsonProperty("date") date: Date,
+                                   @JsonProperty("signing_pubkey") signing_pubkey: String,
+                                   @JsonProperty("counter") counter: BigInt,
+                                   @JsonProperty("gas_limit") gasLimit: BigInt,
+                                   @JsonProperty("storage_limit") storageLimit: BigInt,
+                                   @JsonProperty("block_hash") blockHash: String,
+                                   @JsonProperty("status") status: Int,
                             @JsonProperty("raw_transaction") rawTransaction: String) extends TransactionView
 
 object UnsignedTezosTransactionView {
   def apply(tx: core.TezosLikeTransaction): UnsignedTezosTransactionView = {
     UnsignedTezosTransactionView(
+      tx.getType,
+      tx.getHash,
+      Option(tx.getFees).map(fees => fees.toString),
+      Option(tx.getReceiver).map(recv => recv.toBase58),
+      tx.getSender.toBase58,
+      tx.getValue.toString,
+      tx.getDate,
+      HexUtils.valueOf(tx.getSigningPubKey),
+      tx.getCounter.asScala,
+      tx.getGasLimit.toBigInt.asScala,
+      tx.getStorageLimit.asScala,
+      tx.getBlockHash,
+      tx.getStatus,
       HexUtils.valueOf(tx.serialize())
     )
   }
