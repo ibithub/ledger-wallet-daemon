@@ -17,5 +17,4 @@ object ClientFactory {
   lazy val apiClient: ApiClient = new ApiClient()(
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool((r: Runnable) => new Thread(r, "api-client")))
   )
-
 }

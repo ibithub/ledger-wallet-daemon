@@ -188,6 +188,10 @@ object DefaultDaemonCache extends Logging {
       cachedPools.get(p.name) match {
         case Some(pool) => Future.successful(pool)
         case None => Pool.newCoreInstance(p).flatMap { coreP =>
+          val pref = coreP.getPreferences
+          pref.edit().putBoolean("testBool", true).commit()
+
+          debug(s"Preferences : ${pref.getClass} and bool : ${pref.getBoolean("testBool", false)}")
           cachedPools.put(p.name, Pool.newInstance(coreP, poolId))
           debug(s"Add ${cachedPools(p.name)} to $self cache")
           cachedPools.get(p.name).foreach(p => p.registerEventReceiver(new NewOperationEventReceiver(poolId, opsCache)))

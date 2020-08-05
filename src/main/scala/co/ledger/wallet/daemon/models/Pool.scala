@@ -8,7 +8,7 @@ import co.ledger.core.{ConfigurationDefaults, ErrorCode}
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
 import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
-import co.ledger.wallet.daemon.database.PoolDto
+import co.ledger.wallet.daemon.database.{PoolDto, PostgresPreferenceBackend}
 import co.ledger.wallet.daemon.exceptions.{CoreDatabaseException, CurrencyNotFoundException, UnsupportedNativeSegwitException, WalletNotFoundException}
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.libledger_core.crypto.SecureRandomRNG
@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.twitter.inject.Logging
 import com.typesafe.config.ConfigFactory
 import org.bitcoinj.core.Sha256Hash
+import slick.jdbc.JdbcBackend.Database
 
 import scala.collection.JavaConverters._
 import scala.collection._
@@ -261,14 +262,16 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
 
 object Pool extends Logging {
   private val config = ConfigFactory.load()
+  var preferenceBackend: PostgresPreferenceBackend = null
 
   def newInstance(coreP: core.WalletPool, id: Long): Pool = {
     new Pool(coreP, id)
   }
 
   def newCoreInstance(poolDto: PoolDto): Future[core.WalletPool] = {
+    val builder = core.WalletPoolBuilder.createInstance()
     val poolConfig = core.DynamicObject.newInstance()
-    val dbBackend = Try(config.getString("core_database_engine")).toOption.getOrElse("sqlite3") match {
+    Try(config.getString("core_database_engine")).toOption.getOrElse("sqlite3") match {
       case "postgres" =>
         info("Using PostgreSql as core database engine")
         val dbName = for {
@@ -280,31 +283,37 @@ object Pool extends Logging {
         } yield {
           // Ref: postgres://USERNAME:PASSWORD@HOST:PORT/DBNAME
           if (dbPwd.isEmpty) {
-            s"postgres://${dbUserName}@${dbHost}:${dbPort}/${dbPrefix}${poolDto.name}"
+            (s"postgres://${dbUserName}@${dbHost}:${dbPort}/${dbPrefix}${poolDto.name}",
+              s"jdbc:postgresql://$dbHost:$dbPort/$dbPrefix${poolDto.name}?user=$dbUserName")
           } else {
-            s"postgres://${dbUserName}:${dbPwd}@${dbHost}:${dbPort}/${dbPrefix}${poolDto.name}"
+            (s"postgres://${dbUserName}:${dbPwd}@${dbHost}:${dbPort}/${dbPrefix}${poolDto.name}",
+              s"jdbc:postgresql://$dbHost:$dbPort/$dbPrefix${poolDto.name}?user=$dbUserName&password=$dbPwd")
           }
         }
         dbName match {
-          case Success(value) =>
-            poolConfig.putString("DATABASE_NAME", value)
-            core.DatabaseBackend.getPostgreSQLBackend(config.getInt("postgres.pool_size"))
+          case Success((cppUrl, jdbcUrl)) =>
+            info(s"Using PostgreSQL as core preference database $jdbcUrl")
+            preferenceBackend = new PostgresPreferenceBackend(Database.forURL(jdbcUrl))
+            preferenceBackend.init()
+            builder.setExternalPreferencesBackend(preferenceBackend)
+            builder.setInternalPreferencesBackend(preferenceBackend)
+            poolConfig.putString("DATABASE_NAME", cppUrl)
+            val backend = core.DatabaseBackend.getPostgreSQLBackend(config.getInt("postgres.pool_size"))
+            builder.setDatabaseBackend(backend)
           case Failure(exception) =>
             throw CoreDatabaseException("Failed to configure wallet daemon's core database", exception)
         }
       case _ =>
         info("Using Sqlite as core database engine")
-        core.DatabaseBackend.getSqlite3Backend
+        builder.setDatabaseBackend(core.DatabaseBackend.getSqlite3Backend)
     }
-
-    core.WalletPoolBuilder.createInstance()
+    builder
       .setHttpClient(ClientFactory.httpCoreClient)
       .setWebsocketClient(ClientFactory.webSocketClient)
       .setLogPrinter(new NoOpLogPrinter(ClientFactory.threadDispatcher.getMainExecutionContext, true))
       .setThreadDispatcher(ClientFactory.threadDispatcher)
       .setPathResolver(new ScalaPathResolver(corePoolId(poolDto.userId, poolDto.name)))
       .setRandomNumberGenerator(new SecureRandomRNG)
-      .setDatabaseBackend(dbBackend)
       .setConfiguration(poolConfig)
       .setName(poolDto.name)
       .build()

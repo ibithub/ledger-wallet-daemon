@@ -66,4 +66,12 @@ trait Tables {
   }
 
   val pools = TableQuery[Pools]
+
+  case class PreferenceRow(key: Array[Byte], value: Array[Byte])
+  class Preferences(tag: Tag) extends Table[PreferenceRow](tag, "preferences") {
+    def key: Rep[Array[Byte]] = column[Array[Byte]]("key", O.PrimaryKey)
+    def value: Rep[Array[Byte]] = column[Array[Byte]]("value")
+    def * : ProvenShape[PreferenceRow] = (key, value) <> (PreferenceRow.tupled, PreferenceRow.unapply)
+  }
+  val preferences = TableQuery[Preferences]
 }
