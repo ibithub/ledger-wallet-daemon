@@ -478,9 +478,17 @@ object Account extends Logging {
       }
       _ = builder.setFees(currency.convertAmount(baseFee))
 
+      gasLimit <- ti.gasLimit match {
+        case Some(amount) => Future.successful(amount.asCoreBigInt)
+        case None => tezosAccount.getEstimatedGasLimit(ti.recipient)
+      }
+      storageLimit <- ti.storageLimit match {
+        case Some(amount) => Future.successful(amount)
+        case None => Future.successful(scala.math.BigInt(257))
+      }
       // TODO: Sequence number ? How to handle this with concurrent transactions ?
-      _ = builder.setGasLimit(currency.convertAmount(ti.gasLimit))
-      _ = builder.setStorageLimit(ti.storageLimit.asCoreBigInt)
+      _ = builder.setGasLimit(currency.convertAmount(gasLimit.asScala))
+      _ = builder.setStorageLimit(storageLimit.asCoreBigInt)
 
       _ = builder.setType(ti.operationType)
       // Various transaction types : transaction / wipe to address / delegate / undelegate
