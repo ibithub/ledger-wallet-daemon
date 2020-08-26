@@ -208,12 +208,14 @@ object TransactionsController {
                                          recipient: String,
                                          amount: String,
                                          wipeToAddress: Boolean,
-                                         gasLimit: String,
-                                         storageLimit: String,
-                                         fees_amount: Option[String],
+                                         gasLimit: Option[String],
+                                         storageLimit: Option[String],
+                                         fees: Option[String],
                                          feesLevel: Option[String]
   ) extends CreateTransactionRequest {
-    def feesValue: Option[BigInt] = fees_amount.map(BigInt(_))
+    def feesValue: Option[BigInt] = fees.map(BigInt(_))
+    def gasLimitValue: Option[BigInt] = gasLimit.map(BigInt(_))
+    def storageLimitValue: Option[BigInt] = storageLimit.map(BigInt(_))
 
     override def transactionInfo: TransactionInfo =
       XTZTransactionInfo(
@@ -221,14 +223,14 @@ object TransactionsController {
         recipient,
         BigInt(amount),
         wipeToAddress,
-        BigInt(gasLimit),
-        BigInt(storageLimit),
+        gasLimitValue,
+        storageLimitValue,
         feesValue,
         feesLevel
       )
 
     @MethodValidation
-    def validateFees: ValidationResult = CommonMethodValidations.validateFees(feesValue, feesLevel)
+    def validateFees: ValidationResult = CommonMethodValidations.validateFees(gasLimitValue, feesLevel)
   }
 
   trait TransactionInfo
@@ -273,8 +275,8 @@ object TransactionsController {
                                 recipient: String,
                                 amount: BigInt,
                                 wipeToAddress: Boolean,
-                                gasLimit: BigInt,
-                                storageLimit: BigInt,
+                                gasLimit: Option[BigInt],
+                                storageLimit: Option[BigInt],
                                 fees: Option[BigInt],
                                 feesLevel: Option[String]) extends TransactionInfo {
     lazy val feesSpeedLevel: Option[FeeMethod] = feesLevel.map { level => FeeMethod.from(level) }

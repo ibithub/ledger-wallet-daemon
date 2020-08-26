@@ -3,13 +3,13 @@ package co.ledger.wallet.daemon.models.coins
 import java.util.Date
 
 import co.ledger.core
-import co.ledger.core.implicits._
 import co.ledger.wallet.daemon.models.coins.Coin._
 import co.ledger.wallet.daemon.utils.HexUtils
+import co.ledger.wallet.daemon.utils.Utils.RichBigInt
 import com.fasterxml.jackson.annotation.JsonProperty
 
 import scala.collection.JavaConverters._
-import co.ledger.wallet.daemon.utils.Utils.RichBigInt
+import scala.util.Try
 
 object Tezos {
   val currencyFamily = core.WalletType.TEZOS
@@ -36,9 +36,9 @@ object Tezos {
       from.getValue.toString,
       from.getDate,
       HexUtils.valueOf(from.getSigningPubKey),
-      from.getCounter.asScala,
-      from.getGasLimit.toBigInt.asScala,
-      from.getStorageLimit.asScala,
+      Try(from.getCounter).toOption.map(counter => counter.asScala),
+      Option(from.getGasLimit).map(limit => limit.toBigInt.asScala),
+      Try(from.getStorageLimit).toOption.map(limit => limit.asScala),
       from.getBlockHash,
       from.getStatus
     )
@@ -81,9 +81,9 @@ case class TezosTransactionView(
                                    @JsonProperty("value") value: String,
                                    @JsonProperty("date") date: Date,
                                    @JsonProperty("signing_pubkey") signing_pubkey: String,
-                                   @JsonProperty("counter") counter: BigInt,
-                                   @JsonProperty("gas_limit") gasLimit: BigInt,
-                                   @JsonProperty("storage_limit") storageLimit: BigInt,
+                                   @JsonProperty("counter") counter: Option[BigInt],
+                                   @JsonProperty("gas_limit") gasLimit: Option[BigInt],
+                                   @JsonProperty("storage_limit") storageLimit: Option[BigInt],
                                    @JsonProperty("block_hash") blockHash: String,
                                    @JsonProperty("status") status: Int
                                  ) extends TransactionView
@@ -99,32 +99,16 @@ object TezosTransactionView {
       tx.getValue.toString,
       tx.getDate,
       HexUtils.valueOf(tx.getSigningPubKey),
-      tx.getCounter.asScala,
-      tx.getGasLimit.toBigInt.asScala,
-      tx.getStorageLimit.asScala,
+      Try(tx.getCounter).toOption.map(counter => counter.asScala),
+      Option(tx.getGasLimit).map(limit => limit.toBigInt.asScala),
+      Try(tx.getStorageLimit).toOption.map(limit => limit.asScala),
       tx.getBlockHash,
       tx.getStatus
     )
   }
 
   def apply(op: core.Operation): TezosTransactionView = {
-    val tx = op.asTezosLikeOperation().getTransaction
-
-    TezosTransactionView(
-      tx.getType,
-      tx.getHash,
-      Option(tx.getFees).map(fees => fees.toString),
-      Option(tx.getReceiver).map(recv => recv.toBase58),
-      tx.getSender.toBase58,
-      tx.getValue.toString,
-      tx.getDate,
-      HexUtils.valueOf(tx.getSigningPubKey),
-      tx.getCounter.asScala,
-      tx.getGasLimit.toBigInt.asScala,
-      tx.getStorageLimit.asScala,
-      tx.getBlockHash,
-      tx.getStatus
-    )
+    this.apply(op.asTezosLikeOperation().getTransaction)
   }
 }
 
@@ -137,9 +121,9 @@ case class UnsignedTezosTransactionView(
                                    @JsonProperty("value") value: String,
                                    @JsonProperty("date") date: Date,
                                    @JsonProperty("signing_pubkey") signing_pubkey: String,
-                                   @JsonProperty("counter") counter: BigInt,
-                                   @JsonProperty("gas_limit") gasLimit: BigInt,
-                                   @JsonProperty("storage_limit") storageLimit: BigInt,
+                                   @JsonProperty("counter") counter: Option[BigInt],
+                                   @JsonProperty("gas_limit") gasLimit: Option[BigInt],
+                                   @JsonProperty("storage_limit") storageLimit: Option[BigInt],
                                    @JsonProperty("block_hash") blockHash: String,
                                    @JsonProperty("status") status: Int,
                             @JsonProperty("raw_transaction") rawTransaction: String) extends TransactionView
@@ -155,9 +139,9 @@ object UnsignedTezosTransactionView {
       tx.getValue.toString,
       tx.getDate,
       HexUtils.valueOf(tx.getSigningPubKey),
-      tx.getCounter.asScala,
-      tx.getGasLimit.toBigInt.asScala,
-      tx.getStorageLimit.asScala,
+      Try(tx.getCounter).toOption.map(counter => counter.asScala),
+      Option(tx.getGasLimit).map(limit => limit.toBigInt.asScala),
+      Try(tx.getStorageLimit).toOption.map(limit => limit.asScala),
       tx.getBlockHash,
       tx.getStatus,
       HexUtils.valueOf(tx.serialize())
