@@ -143,3 +143,19 @@ workflows:
                 - /coin\/.*/
             tags:
               only: /.*/
+      - docker/publish_image:
+          context: githubpkg
+          requires:
+            - docker/test_image
+          filters:
+            branches:
+              only:
+                - master
+                - master-drop2
+                - develop
+                - develop-drop2
+                - release_candidate
+                - release_candidate_drop2
+                - /coin\/.*/
+            tags:
+              only: /.*/
