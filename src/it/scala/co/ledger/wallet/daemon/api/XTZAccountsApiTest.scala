@@ -61,18 +61,21 @@ class XTZAccountsApiTest extends APIFeatureTest {
     val add = addresses.head.address
     val receiverAddress = "tz1fizckUHrisN2JXZRWEBvtq4xRQwPhoirQ"
 
-    val txBadRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1000", false, "800", "800", None, None)
+    val txBadRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress,
+                                                   "1000", false, Some("800"), Some("800"), None, None)
     val txBadRequestJson = server.mapper.objectMapper.writeValueAsString(txBadRequest)
     // Neither fees nor fees_level has been provided, expect failure due to MethodValidation check
     assertCreateTransaction(txBadRequestJson, poolName, walletName, 0, Status.BadRequest)
 
     // Not enough funds error
-    val txTooPoorRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "80000000", false, "800", "800", None, Some("FAST"))
+    val txTooPoorRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress,
+                                                       "80000000", false, Some("800"), Some("800"), None, Some("FAST"))
     val txTooPoorRequestJson = server.mapper.objectMapper.writeValueAsString(txTooPoorRequest)
     assertCreateTransaction(txTooPoorRequestJson, poolName, walletName, 0, Status.BadRequest)
 
     // Check No fees amount provided with fee_level provided
-    val txRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1", false, "8", "8", None, Some("SLOW"))
+    val txRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress,
+                                                "1", false, Some("8"), Some("8"), None, Some("SLOW"))
     val txRequestJson = server.mapper.objectMapper.writeValueAsString(txRequest)
     val transactionView = parse[UnsignedTezosTransactionView](assertCreateTransaction(txRequestJson, poolName, walletName, 0, Status.Ok))
     info(s"Here is transaction view : $transactionView")
@@ -83,14 +86,16 @@ class XTZAccountsApiTest extends APIFeatureTest {
     assert(transactionView.sender == add)
 
     // Check normal speed fees multiplier
-    val txNormalSpeedRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1", false, "8", "8", Some("322"), Some("NORMAL"))
+    val txNormalSpeedRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress,
+                                                           "1", false, Some("8"), Some("8"), Some("322"), Some("NORMAL"))
     val txNormalSpeedRequestJson = server.mapper.objectMapper.writeValueAsString(txNormalSpeedRequest)
     val normalSpeedTransactionView = parse[UnsignedTezosTransactionView](assertCreateTransaction(txNormalSpeedRequestJson, poolName, walletName, 0, Status.Ok))
     info(s"Here is transaction view : $normalSpeedTransactionView")
     assert(normalSpeedTransactionView.fees == Some("644"))
 
     // Check fast speed multiplier
-    val txFastSpeedRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress, "1", false, "8", "8", Some("923"), Some("NORMAL"))
+    val txFastSpeedRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress,
+                                                         "1", false, Some("8"), Some("8"), Some("923"), Some("NORMAL"))
     val txFastSpeedRequestJson = server.mapper.objectMapper.writeValueAsString(txFastSpeedRequest)
     val fastSpeedTransactionView = parse[UnsignedTezosTransactionView](assertCreateTransaction(txFastSpeedRequestJson, poolName, walletName, 0, Status.Ok))
     info(s"Here is transaction view : $fastSpeedTransactionView")
