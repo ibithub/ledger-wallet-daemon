@@ -277,6 +277,15 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
         }
     }
   }
+  def latestOperations(accountInfo: AccountInfo, latests: Int): Future[Seq[OperationView]] = {
+    daemonCache.withAccountAndWallet(accountInfo) {
+      case (account, wallet) =>
+        account.latestOperations(latests)
+          .flatMap(ops => Future.sequence(
+            ops.map(Operations.getView(_, wallet, account)))
+        )
+    }
+  }
 
   def accountOperation(uid: String, fullOp: Int, accountInfo: AccountInfo): Future[Option[OperationView]] =
     daemonCache.withAccountAndWallet(accountInfo) {
