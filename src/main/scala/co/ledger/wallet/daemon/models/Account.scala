@@ -115,6 +115,9 @@ object Account extends Logging {
       Account.operations(offset, batch, fullOp, opQuery)
     }
 
+    def latestOperations(latests: Int)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] =
+      Account.latestOperations(latests, a.queryOperations())
+
     def freshAddresses(implicit ec: ExecutionContext): Future[Seq[core.Address]] =
       Account.freshAddresses(a)
 
@@ -302,9 +305,9 @@ object Account extends Logging {
         case None => ClientFactory.apiClient.getFees(c.getName).map(f => f.getAmount(ti.feesSpeedLevel.getOrElse(FeeMethod.NORMAL)))
       }
       builder = a.asBitcoinLikeAccount().buildTransaction(partial)
-          .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
-          .setFeesPerByte(c.convertAmount(feesPerByte))
-          .pickInputs(ti.pickingStrategy, UnsignedInteger.MAX_VALUE.intValue())
+        .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
+        .setFeesPerByte(c.convertAmount(feesPerByte))
+        .pickInputs(ti.pickingStrategy, UnsignedInteger.MAX_VALUE.intValue())
       _ = for ((address, index) <- ti.excludeUtxos) builder.excludeUtxo(address, index)
       tx <- builder.build()
       v <- Bitcoin.newUnsignedTransactionView(tx, feesPerByte, partial)
@@ -475,6 +478,10 @@ object Account extends Logging {
     } else {
       query.addOrder(OperationOrderKey.DATE, true).offset(offset).limit(batch).partial().execute()
     }).map { operations => operations.asScala.toList }
+  }
+
+  def latestOperations(latests: Int, query: OperationQuery)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] = {
+    query.addOrder(OperationOrderKey.DATE, true).offset(0).limit(latests).complete().execute().map { operations => operations.asScala.toList }
   }
 
   def balances(start: String, end: String, timePeriod: core.TimePeriod, a: core.Account)(implicit ec: ExecutionContext): Future[List[scala.BigInt]] = {
