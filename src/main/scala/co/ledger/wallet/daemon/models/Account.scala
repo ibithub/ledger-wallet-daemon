@@ -481,7 +481,7 @@ object Account extends Logging {
   }
 
   def latestOperations(latests: Int, query: OperationQuery)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] = {
-    query.addOrder(OperationOrderKey.DATE, true).offset(0).limit(latests).partial().execute().map { operations => operations.asScala.toList }
+    query.addOrder(OperationOrderKey.DATE, true).offset(0).limit(latests).complete().execute().map { operations => operations.asScala.toList }
   }
 
   def balances(start: String, end: String, timePeriod: core.TimePeriod, a: core.Account)(implicit ec: ExecutionContext): Future[List[scala.BigInt]] = {
