@@ -91,7 +91,8 @@ case class StellarTransactionView(@JsonProperty("hash") hash: String,
                                   @JsonProperty("receiver") receiver: String,
                                   @JsonProperty("value") value: String,
                                   @JsonProperty("fees") fees: String,
-                                  @JsonProperty("memo") memo: Option[StellarMemo]) extends TransactionView
+                                  @JsonProperty("memo") memo: Option[StellarMemo],
+                                  @JsonProperty("is_successful") isSuccessful: Boolean) extends TransactionView
 
 object StellarTransactionView {
   def apply(op: Operation): StellarTransactionView = {
@@ -105,7 +106,8 @@ object StellarTransactionView {
       op.getRecipients.asScala.head,
       op.getAmount.toString,
       stellarTransaction.getFee.toString,
-      StellarMemo.from(stellarMemo.getMemoType.toString, stellarMemo.memoValuetoString())
+      StellarMemo.from(stellarMemo.getMemoType.toString, stellarMemo.memoValuetoString()),
+      stellarOperationRecord.getSuccessful
     )
   }
 }
