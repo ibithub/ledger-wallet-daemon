@@ -98,17 +98,20 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
 
   def getUtxo(accountInfo: AccountInfo, offset: Int, batch: Int): Future[(List[UTXOView], Int)] = {
     checkSyncStatus(accountInfo)
+
     daemonCache.withAccountAndWallet(accountInfo) { (account, wallet) =>
       for {
         lastBlockHeight <- wallet.lastBlockHeight
         count <- account.getUtxoCount()
         utxos <- account.getUtxo(offset, batch).map(_.map(output => {
+          val confirmations: Long =
+            if (output.getBlockHeight >= 0) lastBlockHeight - output.getBlockHeight else output.getBlockHeight
           UTXOView(
             output.getTransactionHash,
             output.getOutputIndex,
             output.getAddress,
             output.getBlockHeight,
-            lastBlockHeight - output.getBlockHeight,
+            confirmations,
             output.getValue.toBigInt.asScala)
         }))
       } yield (utxos, count)
@@ -272,6 +275,15 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
           case None => Future.successful(None)
           case Some(o) => Operations.getView(o, wallet, account).map(Some(_))
         }
+    }
+  }
+  def latestOperations(accountInfo: AccountInfo, latests: Int): Future[Seq[OperationView]] = {
+    daemonCache.withAccountAndWallet(accountInfo) {
+      case (account, wallet) =>
+        account.latestOperations(latests)
+          .flatMap(ops => Future.sequence(
+            ops.map(Operations.getView(_, wallet, account)))
+        )
     }
   }
 

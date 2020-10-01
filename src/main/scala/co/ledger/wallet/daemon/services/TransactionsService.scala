@@ -62,4 +62,17 @@ class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache, mess
     }
   }
 
+  def getTransactionHash(request: Request, accountInfo: AccountInfo): Future[String] = {
+    defaultDaemonCache.withAccountAndWallet(accountInfo) {
+      case (account, wallet) =>
+        for {
+          r <- wallet.getWalletType match {
+            case WalletType.RIPPLE =>
+              val req = messageBodyManager.read[BroadcastTransactionRequest](request)
+              account.getXRPTransactionHash(req.hexTx, req.hexSig, wallet.getCurrency)
+            case w => Future.failed(CurrencyNotFoundException(w.name()))
+          }
+        } yield r
+    }
+  }
 }

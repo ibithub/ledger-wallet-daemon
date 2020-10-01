@@ -130,7 +130,6 @@ class ApiClient(implicit val ec: ExecutionContext) extends Logging {
 
   private val defaultGasLimit = BigInt(200000)
   private val defaultXRPFeesInfo = RippleFeeInfo(10, 256, 256, 10)
-    BigInt(10)
 
   // {"2":18281,"3":12241,"6":10709,"last_updated":1580478904}
   private val defaultBTCFeeInfo: BtcFeeInfo =

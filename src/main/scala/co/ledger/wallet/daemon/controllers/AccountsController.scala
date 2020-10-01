@@ -1,5 +1,6 @@
 package co.ledger.wallet.daemon.controllers
 
+import java.time.{Instant, Period, ZoneId}
 import java.util.{Date, UUID}
 
 import co.ledger.core.TimePeriod
@@ -21,9 +22,6 @@ import com.twitter.finatra.validation.{MethodValidation, ValidationResult}
 import javax.inject.Inject
 
 import scala.concurrent.Future
-import java.time.Instant
-import java.time.Period
-import java.time.ZoneId
 
 class AccountsController @Inject()(accountsService: AccountsService) extends Controller {
 
@@ -125,7 +123,11 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
             accountsService.accountOperations(OperationQueryParams(request.previous, request.next, request.batch, request.full_op), request.accountInfo)
         }
       }
-
+      // End point queries for operation views with specified pool, wallet name, and unique account index.
+      get("/operations/latests") { request: LatestOperationsRequest =>
+        info(s"GET latests account operations $request")
+        accountsService.latestOperations(request.accountInfo, request.length)
+      }
       // End point queries for account balance
       get("/balance") { request: BalanceRequest =>
         info(s"GET account balance $request")
@@ -213,6 +215,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
 
 object AccountsController {
   private val DEFAULT_BATCH: Int = 20
+  private val DEFAULT_LATEST: Int = 5
   private val DEFAULT_OFFSET: Int = 0
   private val DEFAULT_OPERATION_MODE: Int = 0
 
@@ -256,9 +259,9 @@ object AccountsController {
     @MethodValidation
     def validateDate: ValidationResult = {
       val validateDateFormat = CommonMethodValidations.validateDates(start, end)
-      if(validateDateFormat.isValid) {
+      if (validateDateFormat.isValid) {
         val validateTP = validateTimePeriod
-        if(validateTP.isValid) {
+        if (validateTP.isValid) {
           validatePeriodSize
         } else {
           validateTP
@@ -273,26 +276,26 @@ object AccountsController {
       val endLocalDate = Instant.ofEpochMilli(endDate.getTime()).atZone(ZoneId.systemDefault()).toLocalDate()
       val period = Period.between(startLocalDate, endLocalDate)
       timePeriod match {
-      case TimePeriod.HOUR =>
-        ValidationResult.validate(
-          period.minusMonths(1).isNegative(),
-          "can't return hourly history for period more than one month"
-        )
-      case TimePeriod.DAY =>
-        ValidationResult.validate(
-          period.minusYears(3).isNegative(),
-          "can't return daily history for period more than three years"
-        )
-      case TimePeriod.WEEK =>
-        ValidationResult.validate(
-          period.minusYears(10).isNegative(),
-          "can't return weekly history for period more than ten years"
-        )
-      case TimePeriod.MONTH =>
-        ValidationResult.validate(
-          period.minusYears(100).isNegative(),
-          "can't return monthly history for period more than one hundred years"
-        )
+        case TimePeriod.HOUR =>
+          ValidationResult.validate(
+            period.minusMonths(1).isNegative(),
+            "can't return hourly history for period more than one month"
+          )
+        case TimePeriod.DAY =>
+          ValidationResult.validate(
+            period.minusYears(3).isNegative(),
+            "can't return daily history for period more than three years"
+          )
+        case TimePeriod.WEEK =>
+          ValidationResult.validate(
+            period.minusYears(10).isNegative(),
+            "can't return weekly history for period more than ten years"
+          )
+        case TimePeriod.MONTH =>
+          ValidationResult.validate(
+            period.minusYears(100).isNegative(),
+            "can't return monthly history for period more than one hundred years"
+          )
       }
     }
 
@@ -327,12 +330,12 @@ object AccountsController {
                              request: Request) extends BaseSingleAccountRequest
 
   case class AccountAddressRequest(
-                             @RouteParam override val pool_name: String,
-                             @RouteParam override val wallet_name: String,
-                             @RouteParam override val account_index: Int,
-                             @QueryParam from: Long = 0,
-                             @QueryParam to: Long = 1,
-                             request: Request) extends BaseSingleAccountRequest
+                                    @RouteParam override val pool_name: String,
+                                    @RouteParam override val wallet_name: String,
+                                    @RouteParam override val account_index: Int,
+                                    @QueryParam from: Long = 0,
+                                    @QueryParam to: Long = 1,
+                                    request: Request) extends BaseSingleAccountRequest
 
   case class AccountsRequest(
                               @RouteParam override val pool_name: String,
@@ -352,6 +355,7 @@ object AccountsController {
     extends BaseSingleAccountRequest with WithTokenAccountInfo
 
   case class UtxoAccountResponse(utxos: List[UTXOView], count: Int)
+
   case class UtxoAccountRequest(
                                  @RouteParam pool_name: String,
                                  @RouteParam wallet_name: String,
@@ -393,6 +397,20 @@ object AccountsController {
 
     @MethodValidation
     def validateBatch: ValidationResult = ValidationResult.validate(batch > 0, "batch: batch should be greater than zero")
+
+  }
+
+  case class LatestOperationsRequest(
+                                      @RouteParam override val pool_name: String,
+                                      @RouteParam override val wallet_name: String,
+                                      @RouteParam override val account_index: Int,
+                                      @QueryParam length: Int = DEFAULT_LATEST,
+                                      @QueryParam contract: Option[String],
+                                      request: Request
+                                    ) extends BaseSingleAccountRequest {
+
+    @MethodValidation
+    def validateLatest: ValidationResult = ValidationResult.validate(length > 0, "latest: length should be greater than zero")
 
   }
 

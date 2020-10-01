@@ -14,6 +14,7 @@ object Currency {
     def parseUnsignedBTCTransaction(rawTx: Array[Byte], currentHeight: Long): Either[String, core.BitcoinLikeTransaction] = Currency.parseUnsignedBTCTransaction(c)(rawTx, currentHeight)
     def parseUnsignedETHTransaction(rawTx: Array[Byte]): Either[String, core.EthereumLikeTransaction] = Currency.parseUnsignedETHTransaction(c)(rawTx)
     def parseUnsignedXRPTransaction(rawTx: Array[Byte]): Either[String, core.RippleLikeTransaction] = Currency.parseUnsignedXRPTransaction(c)(rawTx)
+    def parseSignedXRPTransaction(rawTx: Array[Byte]): Either[String, core.RippleLikeTransaction] = Currency.parseSignedXRPTransaction(c)(rawTx)
     def parseUnsignedXLMTransaction(rawTx: Array[Byte]): Either[String, core.StellarLikeTransaction] = Currency.parseUnsignedXLMTransaction(c)(rawTx)
     def validateAddress(address: String): Boolean = Currency.validateAddress(c)(address)
     def convertAmount(amount: BigInt): core.Amount = Currency.convertAmount(c)(amount)
@@ -40,6 +41,12 @@ object Currency {
   def parseUnsignedXRPTransaction(currency: core.Currency)(rawTx: Array[Byte]): Either[String, core.RippleLikeTransaction] =
     currency.getWalletType match {
       case core.WalletType.RIPPLE => Right(core.RippleLikeTransactionBuilder.parseRawUnsignedTransaction(currency, rawTx))
+      case w => Left(s"$w is not Ripple")
+    }
+
+  def parseSignedXRPTransaction(currency: core.Currency)(rawTx: Array[Byte]): Either[String, core.RippleLikeTransaction] =
+    currency.getWalletType match {
+      case core.WalletType.RIPPLE => Right(core.RippleLikeTransactionBuilder.parseRawSignedTransaction(currency, rawTx))
       case w => Left(s"$w is not Ripple")
     }
 

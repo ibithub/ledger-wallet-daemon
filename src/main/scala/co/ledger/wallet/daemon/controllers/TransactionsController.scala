@@ -48,6 +48,20 @@ class TransactionsController @Inject()(transactionsService: TransactionsService)
     transactionsService.broadcastTransaction(request.request, request.accountInfo)
   }
 
+  /**
+    * Serialize a signed transaction to its hash.
+    * Input json
+    * {
+    * raw_transaction: the bytes,
+    * signatures: [string],
+    * pubkeys: [string]
+    * }
+    */
+  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions/hash") { request: AccountInfoRequest =>
+    info(s"Sign transaction $request: ${request.request.contentString}")
+    transactionsService.getTransactionHash(request.request, request.accountInfo)
+  }
+
 }
 
 object TransactionsController {

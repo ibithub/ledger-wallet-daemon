@@ -91,11 +91,14 @@ object Account extends Logging {
     def broadcastETHTransaction(rawTx: Array[Byte], signatures: ETHSignature, c: core.Currency)(implicit ec: ExecutionContext): Future[String] =
       Account.broadcastETHTransaction(rawTx, signatures, a, c)
 
-    def broadcastXRPTransaction(rawTx: Array[Byte], signatures: XRPSignature, c: core.Currency): Future[String] =
+    def broadcastXRPTransaction(rawTx: Array[Byte], signatures: XRPSignature, c: core.Currency)(implicit ec: ExecutionContext): Future[String] =
       Account.broadcastXRPTransaction(rawTx, signatures, a, c)
 
     def broadcastXLMTransaction(rawTx: Array[Byte], signatures: XLMSignature, c: core.Currency): Future[String] =
       Account.broadcastXLMTransaction(rawTx, signatures, a, c)
+
+    def getXRPTransactionHash(rawTx: Array[Byte], signatures: XRPSignature, c: core.Currency)(implicit ec: ExecutionContext): Future[String] =
+      Account.getXRPTransactionHash(rawTx, signatures, c)
 
     def createTransaction(transactionInfo: TransactionInfo, w: core.Wallet)(implicit ec: ExecutionContext): Future[TransactionView] =
       Account.createTransaction(transactionInfo, a, w)
@@ -111,6 +114,9 @@ object Account extends Logging {
       opQuery.filter().opAnd(QueryFilter.blockHeightGt(fromHeight))
       Account.operations(offset, batch, fullOp, opQuery)
     }
+
+    def latestOperations(latests: Int)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] =
+      Account.latestOperations(latests, a.queryOperations())
 
     def freshAddresses(implicit ec: ExecutionContext): Future[Seq[core.Address]] =
       Account.freshAddresses(a)
@@ -249,15 +255,32 @@ object Account extends Logging {
     }
   }
 
-  def broadcastXRPTransaction(rawTx: Array[Byte], signature: XRPSignature, a: core.Account, c: core.Currency): Future[String] = {
+  def getSignedXRPTransaction(rawTx: Array[Byte], signature: XRPSignature, c: core.Currency): Future[RippleLikeTransaction] = {
     c.parseUnsignedXRPTransaction(rawTx) match {
       case Right(tx) =>
         tx.setDERSignature(signature)
         debug(s"transaction after sign '${HexUtils.valueOf(tx.serialize())}'")
-        a.asRippleLikeAccount.broadcastTransaction(tx)
+        Future.successful(tx)
 
       case Left(m) => Future.failed(new UnsupportedOperationException(s"Account type not supported, can't broadcast XRP transaction: $m"))
     }
+  }
+
+  def getXRPTransactionHash(rawTx: Array[Byte], signature: XRPSignature, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = {
+    for {
+      tx <- getSignedXRPTransaction(rawTx, signature, c)
+      hash <- c.parseSignedXRPTransaction(tx.serialize()) match {
+        case Right(v) => Future.successful(v.getHash)
+        case Left(m) => Future.failed(new UnsupportedOperationException(s"Cannot parse signed XRP transaction: $m"))
+      }
+    } yield hash
+  }
+
+  def broadcastXRPTransaction(rawTx: Array[Byte], signature: XRPSignature, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = {
+    for {
+      tx <- getSignedXRPTransaction(rawTx, signature, c)
+      txHash <- a.asRippleLikeAccount.broadcastTransaction(tx)
+    } yield txHash
   }
 
   def broadcastXLMTransaction(rawTx: Array[Byte], signature: XLMSignature, a: core.Account, c: core.Currency): Future[String] = {
@@ -282,9 +305,9 @@ object Account extends Logging {
         case None => ClientFactory.apiClient.getFees(c.getName).map(f => f.getAmount(ti.feesSpeedLevel.getOrElse(FeeMethod.NORMAL)))
       }
       builder = a.asBitcoinLikeAccount().buildTransaction(partial)
-          .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
-          .setFeesPerByte(c.convertAmount(feesPerByte))
-          .pickInputs(ti.pickingStrategy, UnsignedInteger.MAX_VALUE.intValue())
+        .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
+        .setFeesPerByte(c.convertAmount(feesPerByte))
+        .pickInputs(ti.pickingStrategy, UnsignedInteger.MAX_VALUE.intValue())
       _ = for ((address, index) <- ti.excludeUtxos) builder.excludeUtxo(address, index)
       tx <- builder.build()
       v <- Bitcoin.newUnsignedTransactionView(tx, feesPerByte, partial)
@@ -455,6 +478,10 @@ object Account extends Logging {
     } else {
       query.addOrder(OperationOrderKey.DATE, true).offset(offset).limit(batch).partial().execute()
     }).map { operations => operations.asScala.toList }
+  }
+
+  def latestOperations(latests: Int, query: OperationQuery)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] = {
+    query.addOrder(OperationOrderKey.DATE, true).offset(0).limit(latests).complete().execute().map { operations => operations.asScala.toList }
   }
 
   def balances(start: String, end: String, timePeriod: core.TimePeriod, a: core.Account)(implicit ec: ExecutionContext): Future[List[scala.BigInt]] = {
