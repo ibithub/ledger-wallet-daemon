@@ -350,6 +350,7 @@ class AccountSynchronizer(account: Account,
   private def onSynchronizationEnds(): Unit = this.synchronized {
     info(s"SYNC : $accountInfo has been synced : $syncStatus")
     publisher.publishAccount(account, wallet, poolName, syncStatus)
+    publisher.publishERC20Accounts(account, wallet, poolName, syncStatus)
   }
 
 
