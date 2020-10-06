@@ -1,6 +1,6 @@
 package co.ledger.wallet.daemon.services
 
-import co.ledger.core.{Account, ERC20LikeOperation, Operation, Wallet}
+import co.ledger.core.{Account, ERC20LikeAccount, ERC20LikeOperation, Operation, Wallet}
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Currency._
@@ -55,6 +55,12 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
     }
   }
 
+  override def publishERC20Account(erc20Account: ERC20LikeAccount, account: Account, wallet: Wallet, syncStatus: SyncStatus, poolName: String): Future[Unit] = {
+    erc20AccountPayload(erc20Account: ERC20LikeAccount, account: Account, wallet: Wallet, syncStatus: SyncStatus).map {
+      payload => publish(poolName, getAccountRoutingKeys(account, wallet, poolName) ++ List("erc20"), payload)
+    }
+  }
+
   def publishDeletedOperation(uid: String, account: Account, wallet: Wallet, poolName: String): Future[Unit] = {
     Future{
       val routingKey = deleteOperationRoutingKeys(account, wallet, poolName)
@@ -85,6 +91,12 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
 
   private def accountPayload(account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = this.synchronized {
     account.accountView(wallet.getName, wallet.getCurrency.currencyView, syncStatus).map {
+      mapper.writeValueAsBytes(_)
+    }
+  }
+
+  private def erc20AccountPayload(erc20Account: ERC20LikeAccount, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = this.synchronized {
+    account.erc20AccountView(erc20Account, wallet, syncStatus).map {
       mapper.writeValueAsBytes(_)
     }
   }

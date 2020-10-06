@@ -298,10 +298,7 @@ class AccountSynchronizer(account: Account,
   }
 
   private def lastBlockHeightSync: Long = {
-    val f: Future[Long] = account.firstOperation.map { o =>
-      val optionLong: Option[Long] = o.map(_.getBlockHeight) // walk around for java type conversion
-      optionLong.getOrElse(0L)
-    }
+    val f: Future[Long] = account.getLastBlock().map(_.getHeight)
     Try(Await.result(f, 3.seconds)).getOrElse(-1)
   }
 
@@ -353,6 +350,7 @@ class AccountSynchronizer(account: Account,
   private def onSynchronizationEnds(): Unit = this.synchronized {
     info(s"SYNC : $accountInfo has been synced : $syncStatus")
     publisher.publishAccount(account, wallet, poolName, syncStatus)
+    publisher.publishERC20Accounts(account, wallet, poolName, syncStatus)
   }
 
 

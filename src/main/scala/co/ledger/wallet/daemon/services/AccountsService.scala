@@ -96,7 +96,6 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
     balanceCache.get(CacheKey(accountInfo, contract))
   }
 
-
   def getUtxo(accountInfo: AccountInfo, offset: Int, batch: Int): Future[(List[UTXOView], Int)] = {
     checkSyncStatus(accountInfo)
     daemonCache.withAccountAndWallet(accountInfo) { (account, wallet) =>
@@ -130,7 +129,6 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
       }
     }
 
-    debug(s"Retrieve balance for $accountInfo - Contract : $contract")
     val balance = {
       daemonCache.withAccount(accountInfo)(a => {
         contract match {

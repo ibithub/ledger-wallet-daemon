@@ -82,6 +82,9 @@ object Account extends Logging {
     def accountView(walletName: String, cv: CurrencyView, syncStatus: SyncStatus)(implicit ec: ExecutionContext): Future[AccountView] =
       Account.accountView(walletName, cv, a, syncStatus)
 
+    def erc20AccountView(erc20Acc: ERC20LikeAccount, wallet: Wallet, syncStatus: SyncStatus)(implicit ec: ExecutionContext): Future[ERC20FullAccountView] =
+      Account.erc20AccountView(a, erc20Acc, wallet, syncStatus)
+
     def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[BTCSigPub], currentHeight: Long, c: core.Currency): Future[String] =
       Account.broadcastBTCTransaction(rawTx, signatures, currentHeight, a, c)
 
@@ -151,7 +154,6 @@ object Account extends Logging {
   def erc20Accounts(a: core.Account): Either[Exception, List[core.ERC20LikeAccount]] =
     asETHAccount(a).map(_.getERC20Accounts.asScala.toList)
 
-
   def erc20Balance(contract: String, a: core.Account)(implicit ec: ExecutionContext): Future[scala.BigInt] =
     for {
       account <- asERC20Account(contract, a).liftTo[Future]
@@ -207,6 +209,11 @@ object Account extends Logging {
       b <- balance(a)
       opsCount <- operationCounts(a)
     } yield AccountView(walletName, a.getIndex, b, opsCount, a.getRestoreKey, cv, syncStatus)
+
+  def erc20AccountView(a: core.Account, erc20Account: ERC20LikeAccount, wallet: Wallet, syncStatus: SyncStatus)(implicit ex: ExecutionContext): Future[ERC20FullAccountView] =
+      a.erc20Balance(erc20Account.getToken.getContractAddress).flatMap(
+        balance => ERC20FullAccountView.fromERC20Account(erc20Account, a, syncStatus, balance, wallet.getName)
+      )
 
   def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[BTCSigPub], currentHeight: Long, a: core.Account, c: core.Currency): Future[String] = {
     c.parseUnsignedBTCTransaction(rawTx, currentHeight) match {
@@ -586,6 +593,38 @@ object ERC20AccountView {
       bal
     ))
   }
+}
+
+case class ERC20FullAccountView(
+  @JsonProperty("wallet_name") walletName: String,
+  @JsonProperty("index") index: Int,
+  @JsonProperty("balance") balance: scala.BigInt,
+  @JsonProperty("status") status: SyncStatus,
+  @JsonProperty("contract_address") contractAddress: String,
+  @JsonProperty("name") name: String,
+  @JsonProperty("number_of_decimal") numberOrDecimal: Int,
+  @JsonProperty("symbol") symbol: String,
+)
+
+object ERC20FullAccountView {
+  def fromERC20Account(
+                        erc20Account: ERC20LikeAccount,
+                        baseAccount: Account,
+                        status: SyncStatus,
+                        erc20Balance: scala.BigInt,
+                        walletName: String,
+                      ): Future[ERC20FullAccountView] = Future.successful(
+                        ERC20FullAccountView(
+                          walletName,
+                          baseAccount.getIndex,
+                          erc20Balance,
+                          status,
+                          erc20Account.getToken.getContractAddress,
+                          erc20Account.getToken.getName,
+                          erc20Account.getToken.getNumberOfDecimal,
+                          erc20Account.getToken.getSymbol,
+                        )
+                      )
 }
 
 case class DerivationView(
