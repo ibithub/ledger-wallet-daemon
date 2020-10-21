@@ -1,18 +1,15 @@
 package co.ledger.wallet.daemon.clients
 
-import java.io.BufferedInputStream
+import java.io.{BufferedInputStream, ByteArrayOutputStream}
 import java.net.URL
 import java.util
-
 import co.ledger.core._
 import co.ledger.wallet.daemon.exceptions.InvalidUrlException
 import co.ledger.wallet.daemon.utils.NetUtils
 import co.ledger.wallet.daemon.utils.Utils.RichTwitterFuture
-import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
 import com.twitter.finagle.http.{Method, RequestBuilder, Response}
 import com.twitter.inject.Logging
 import com.twitter.io.Buf
-
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -65,7 +62,7 @@ class HttpCoreClientPool(val ec: ExecutionContext, client: ScalaHttpClientPool) 
   private def readResponseBody(resp: Response, onError: Boolean): HttpReadBodyResult = {
     val response = new BufferedInputStream(resp.getInputStream)
     val buffer = new Array[Byte](PROXY_BUFFER_SIZE)
-    val outputStream = new ByteOutputStream()
+    val outputStream = new ByteArrayOutputStream()
     try {
       var size = 0
       do {
@@ -76,13 +73,20 @@ class HttpCoreClientPool(val ec: ExecutionContext, client: ScalaHttpClientPool) 
           outputStream.write(buffer)
         }
       } while (size > 0)
-      val data = outputStream.getBytes
-      if (onError) error(s"HTTP call is on error. Received content : (${resp.getContentString()}) ")
+      val data = outputStream.toByteArray
+      if (onError) {
+        error(
+          s"HTTP call is on error. Received content : (${resp.getContentString()}) "
+        )
+      }
       new HttpReadBodyResult(null, data)
     } catch {
       case t: Throwable =>
         logger.error("Failed to read response body", t)
-        val error = new co.ledger.core.Error(ErrorCode.HTTP_ERROR, "An error happened during body reading.")
+        val error = new co.ledger.core.Error(
+          ErrorCode.HTTP_ERROR,
+          "An error happened during body reading."
+        )
         new HttpReadBodyResult(error, null)
     } finally {
       outputStream.close()
