@@ -17,7 +17,7 @@ aliases:
 jobs:
   compile:
     docker:
-      - image: ledgerhq/sbt-openjdk-8
+      - image: hseeberger/scala-sbt:11.0.8_1.4.1_2.12.12
         environment:
           JVM_OPTS: -Xmx3200m
           TERM: dumb
@@ -42,7 +42,7 @@ jobs:
 
   scala_linter:
     docker:
-      - image: ledgerhq/sbt-openjdk-8
+      - image: hseeberger/scala-sbt:11.0.8_1.4.1_2.12.12
     steps:
       - checkout
       - restore_cache: *dependencies_cache
@@ -52,7 +52,7 @@ jobs:
 
   integration_tests:
     docker:
-      - image: ledgerhq/sbt-openjdk-8
+      - image: hseeberger/scala-sbt:11.0.8_1.4.1_2.12.12
       - image: ledgerhq/walletdaemon-squid:3.5.27-2
       - image: postgres:11.6
         environment:

@@ -1,7 +1,7 @@
 name := "wallet-daemon"
 version := "2.9.0-SNAPSHOT"
 organization := "co.ledger"
-scalaVersion := "2.12.10"
+scalaVersion := "2.12.12"
 buildInfoPackage := "co.ledger.wallet.daemon"
 
 // Add the branch name to the sbt prompt
