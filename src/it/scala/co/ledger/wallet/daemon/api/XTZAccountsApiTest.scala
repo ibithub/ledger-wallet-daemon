@@ -13,26 +13,26 @@ class XTZAccountsApiTest extends APIFeatureTest {
 
   val poolName = "tez_test_pool"
 
-  override def beforeAll(): Unit = {
+  override def beforeEach(): Unit = {
     createPool(poolName)
   }
 
-  override def afterAll(): Unit = {
+  override def afterEach(): Unit = {
     deletePool(poolName)
   }
 
   private val CORRECT_BODY_XTZ =
-    """{""" +
-      """"account_index": 0,""" +
-      """"derivations": [""" +
-      """{""" +
-      """"owner": "main",""" +
-      """"path": "44'/1729'/0'",""" +
-      """"pub_key": "03432A07E9AE9D557F160D9B1856F909E421B399E12673EEE0F4045F4F7BA151CF",""" +
-      """"chain_code": "5D958E80B0373FA505B95C1DD175B0588205D1620C56F7247B028EBCB0FB5032"""" +
-      """}""" +
-      """]""" +
-      """}"""
+    """{
+      "account_index": 0,
+      "derivations": [
+        {
+          "owner": "main",
+          "path": "44'/1729'/0'",
+          "pub_key": "04AF5696511E23B9E3DC5A527ABC6929FAE708DEFB5299F96CFA7DD9F936FE747DEA6650574572F94869DBE7DF30A5CBD77C5579E5D1BA2867EF8032EE87259B40",
+          "chain_code": ""
+        }
+      ]
+    }"""
 
   test("Create XTZ account") {
     val walletName = "xtzWalletAccountCreation"
@@ -59,7 +59,7 @@ class XTZAccountsApiTest extends APIFeatureTest {
 
     // No fees, no feesLevel provided
     val add = addresses.head.address
-    val receiverAddress = "tz1fizckUHrisN2JXZRWEBvtq4xRQwPhoirQ"
+    val receiverAddress = "tz2LLBZYevBRjNBvzJ24GbAkJ5bNFDQi3KQv"
 
     val txBadRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress,
                                                    "1000", false, Some("800"), Some("800"), None, None)
@@ -81,7 +81,7 @@ class XTZAccountsApiTest extends APIFeatureTest {
     info(s"Here is transaction view : $transactionView")
     assert(transactionView.operationType == TezosOperationTag.OPERATION_TAG_TRANSACTION)
     assert(transactionView.value == "1")
-    assert(transactionView.signing_pubkey == "03432A07E9AE9D557F160D9B1856F909E421B399E12673EEE0F4045F4F7BA151CF")
+    assert(transactionView.signing_pubkey == "04AF5696511E23B9E3DC5A527ABC6929FAE708DEFB5299F96CFA7DD9F936FE747DEA6650574572F94869DBE7DF30A5CBD77C5579E5D1BA2867EF8032EE87259B40")
     assert(transactionView.receiver == Some(receiverAddress))
     assert(transactionView.sender == add)
 
