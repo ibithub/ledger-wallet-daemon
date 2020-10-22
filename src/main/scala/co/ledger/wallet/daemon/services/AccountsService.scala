@@ -324,8 +324,15 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
       case (account, wallet) =>
         val pushOperationFuture = account.operationsFromHeight(0, Int.MaxValue, 1, fromHeight.getOrElse(0))
           .flatMap { ops =>
-            Future.sequence(ops.map { op => publisher.publishOperation(op, account, wallet, accountInfo.poolName) }).map(_ => Unit)
-          }
+            Future.sequence(ops.map(
+              op =>
+                Operations.getView(op, wallet, account))
+            ).map(operationViews =>
+              operationViews.map{opView =>
+                publisher publishOperation(opView, account, wallet, accountInfo.poolName)
+              }
+            )
+        }
         val pushErc20Future: Future[Unit] = if (account.isInstanceOfEthereumLikeAccount) {
           account.erc20Operations.flatMap { operations =>
             Future.sequence(operations.map {

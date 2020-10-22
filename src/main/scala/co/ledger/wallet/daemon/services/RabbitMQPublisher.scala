@@ -5,6 +5,7 @@ import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.gl
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Operations
+import co.ledger.wallet.daemon.models.Operations.OperationView
 import com.rabbitmq.client.{BuiltinExchangeType, ConnectionFactory}
 import com.twitter.finatra.json.FinatraObjectMapper
 import com.twitter.inject.Logging
@@ -36,10 +37,9 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
 
   private val mapper = FinatraObjectMapper.create()
 
-  def publishOperation(op: Operation, account: Account, wallet: Wallet, poolName: String): Future[Unit] = {
-    operationPayload(op, account, wallet).map(payload =>
-      publish(poolName, getTransactionRoutingKeys(op, account, wallet.getCurrency.getName, poolName), payload)
-    )
+  def publishOperation(operationView: OperationView, account: Account, wallet: Wallet, poolName: String): Unit = {
+    val payload = mapper.writeValueAsBytes(operationView)
+    publish(poolName, getTransactionRoutingKeys(operationView, account, wallet.getCurrency.getName, poolName), payload)
   }
 
   def publishERC20Operation(erc20Operation: ERC20LikeOperation, op: Operation, account: Account, wallet: Wallet, poolName: String): Future[Unit] = {
@@ -116,11 +116,6 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
     }
   }
 
-  private def operationPayload(op: Operation, account: Account, wallet: Wallet): Future[Array[Byte]] = {
-    Operations.getView(op, wallet, account).map {
-      mapper.writeValueAsBytes(_)
-    }
-  }
 
   private def getERC20TransactionRoutingKeys(erc20Op: ERC20LikeOperation, account: Account, currencyName: String, poolName: String): List[String] = {
     List(
@@ -133,13 +128,13 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
     )
   }
 
-  private def getTransactionRoutingKeys(op: Operation, account: Account, currencyName: String, poolName: String): List[String] = {
+  private def getTransactionRoutingKeys(operationView: OperationView, account: Account, currencyName: String, poolName: String): List[String] = {
     List(
       "transactions",
       poolName,
       currencyName,
       account.getIndex.toString,
-      op.getOperationType.toString.toLowerCase
+      operationView.opType.toString.toLowerCase
     )
   }
 }

@@ -5,10 +5,12 @@ import co.ledger.core.{Account, ERC20LikeAccount, ERC20LikeOperation, Operation,
 import scala.concurrent.Future
 import scala.collection.JavaConverters._
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.models.Operations.OperationView
 import com.twitter.inject.Logging
 
+
 trait Publisher {
-  def publishOperation(op: Operation, account: Account, wallet: Wallet, poolName: String): Future[Unit]
+  def publishOperation(op: OperationView, account: Account, wallet: Wallet, poolName: String): Unit
 
   def publishERC20Operation(erc20Operation: ERC20LikeOperation, op: Operation, account: Account, wallet: Wallet, poolName: String): Future[Unit]
 
@@ -53,9 +55,9 @@ trait Publisher {
 
 // Dummy publisher that do nothing but log
 class DummyPublisher extends Publisher with Logging {
-  override def publishOperation(op: Operation, account: Account, wallet: Wallet, poolName: String): Future[Unit] = {
+  override def publishOperation(op: OperationView, account: Account, wallet: Wallet, poolName: String): Unit = {
     Future.successful(
-      info(s"publish operation ${op.getUid} of account:${account.getIndex}, wallet:${wallet.getName}, pool:$poolName")
+      info(s"publish operation ${op.uid} of account:${account.getIndex}, wallet:${wallet.getName}, pool:$poolName")
     )
   }
 

@@ -14,3 +14,9 @@ export DD_PROFILING_ENABLED=true
 export DD_TRACE_DEBUG=true
 
 exec ./bin/wallet-daemon ${OPTS} $@
+
+export DD_SERVICE=nrt-wallet-daemon
+export DD_LOGS_INJECTION=true
+export DD_AGENT_HOST=172.17.0.1
+export DD_PROFILING_ENABLED=true
+export DD_TRACE_DEBUG=true
