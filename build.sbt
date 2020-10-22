@@ -40,9 +40,7 @@ unmanagedResourceDirectories in IntegrationTest += baseDirectory.value / "src" /
 // -q: Hide logs for successful tests
 testOptions in Test := Seq(Tests.Argument(TestFrameworks.JUnit, "-a", "-q"))
 
-enablePlugins(JavaAgent,JavaServerAppPackaging)
-
-javaAgents += "com.datadoghq" % "dd-java-agent" % "0.65.0" % "dist"
+enablePlugins(JavaServerAppPackaging)
 
 // Inspired by https://tpolecat.github.io/2017/04/25/scalac-flags.html
 scalacOptions ++= Seq(
