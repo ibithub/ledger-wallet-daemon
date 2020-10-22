@@ -1,10 +1,11 @@
 package co.ledger.wallet.daemon.models
 
 import java.net.URL
+import java.time.{LocalDateTime, ZoneId}
 
 import co.ledger.core
 import co.ledger.core.implicits._
-import co.ledger.core.{ConfigurationDefaults, ErrorCode}
+import co.ledger.core.{ConfigurationDefaults, ErrorCode, ErrorCodeCallback}
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
 import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
@@ -25,7 +26,7 @@ import org.bitcoinj.core.Sha256Hash
 
 import scala.collection.JavaConverters._
 import scala.collection._
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
@@ -34,6 +35,7 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
   private val _coreExecutionContext = LedgerCoreExecutionContext.operationPool
   private[this] val eventReceivers: mutable.Set[core.EventReceiver] = Utils.newConcurrentSet[core.EventReceiver]
 
+  val sessionStartDate: LocalDateTime = LocalDateTime.now()
   val name: String = coreP.getName
 
   def view: Future[WalletPoolView] = coreP.getWalletCount().map { count => WalletPoolView(name, count) }
@@ -111,6 +113,25 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
     */
   def currencies(): Future[Seq[core.Currency]] = {
     coreP.getCurrencies().map(_.asScala.toList)
+  }
+
+  /**
+    * Destroys all wallets in this pool
+    *
+    * @return a future of an co.ledger.core.ErrorCode
+    */
+  def eraseAllFromSessionStart(): Future[ErrorCode] = {
+    val promise = Promise[ErrorCode]()
+    val date = java.util.Date.from(sessionStartDate.atZone(ZoneId.systemDefault()).toInstant)
+    coreP.eraseDataSince(date, new ErrorCodeCallback() {
+      override def onCallback(errorCode: ErrorCode, error: core.Error): Unit = {
+        errorCode match {
+          case ErrorCode.FUTURE_WAS_SUCCESSFULL => promise.success(errorCode)
+          case _ => promise.failure(new UnknownError(error.getMessage))
+        }
+      }
+    })
+    promise.future
   }
 
   def addWalletIfNotExist(walletName: String, currencyName: String, isNativeSegwit: Boolean): Future[core.Wallet] = {

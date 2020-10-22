@@ -151,6 +151,8 @@ object DefaultDaemonCache extends Logging {
     }
 
     private def clearCache(poolName: String): Future[Option[Pool]] = Future {
+      cachedPools.get(poolName).foreach(_.unregisterEventReceivers())
+      cachedPools.get(poolName).foreach(_.eraseAllFromSessionStart())
       cachedPools.remove(poolName)
     }
 
