@@ -195,7 +195,7 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
   /**
     * Synchronize all accounts within this pool.
     *
-    * @return a future of squence of synchronization results.
+    * @return a future of sequence of synchronization results.
     */
   def sync(): Future[Seq[SynchronizationResult]] = {
     for {
