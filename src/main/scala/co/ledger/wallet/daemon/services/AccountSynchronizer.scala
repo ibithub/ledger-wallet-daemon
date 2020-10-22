@@ -13,7 +13,7 @@ import co.ledger.wallet.daemon.exceptions.AccountNotFoundException
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Wallet._
-import co.ledger.wallet.daemon.models.{AccountInfo, Pool, PoolInfo}
+import co.ledger.wallet.daemon.models.{AccountInfo, Operations, Pool, PoolInfo}
 import co.ledger.wallet.daemon.schedulers.observers.SynchronizationResult
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.twitter.concurrent.NamedPoolThreadFactory
@@ -24,7 +24,8 @@ import javax.inject.{Inject, Singleton}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
+
 
 /**
   * This module is responsible to maintain account updated
@@ -209,15 +210,21 @@ class AccountSynchronizer(account: Account,
         case EventCode.NEW_OPERATION =>
           opCounter.incrementAndGet()
           val uid = event.getPayload.getString(OP_ID_EVENT_KEY)
-          account.operation(uid, 1).foreach {
-            case Some(op) =>
-              publisher.publishOperation(op, account, wallet, poolName)
-              publisher.publishERC20Operation(op, account, wallet, poolName)
+          account.operation(uid, 1).flatMap {
+            case Some(op) => Operations.getView(op, wallet, account).map(Some.apply)
+            case None => Future.successful(None)
+          }.foreach {
+            case Some(operationView) =>
+                publisher.publishOperation(operationView, account, wallet, poolName)
+                publisher.publishERC20Operation(operationView, account, wallet, poolName)
             case _ =>
           }
         case EventCode.DELETED_OPERATION =>
           val uid = event.getPayload().getString(Account.EV_DELETED_OP_UID)
-          publisher.publishDeletedOperation(uid, account, wallet, poolName)
+          Await.result(
+            publisher.publishDeletedOperation(uid, account, wallet, poolName),
+            3.seconds
+          )
         case _ =>
       }
     }
@@ -349,15 +356,15 @@ class AccountSynchronizer(account: Account,
 
   private def onSynchronizationEnds(): Unit = this.synchronized {
     info(s"SYNC : $accountInfo has been synced : $syncStatus")
-    val publish = for {
-      _ <- publisher.publishAccount(account, wallet, poolName, syncStatus)
-      _ <- if (account.isInstanceOfEthereumLikeAccount) publisher.publishERC20Accounts(account, wallet, poolName, syncStatus)
-           else Future.unit
-    } yield ()
-    Try(Await.result(publish, 10.seconds)) match {
-      case Failure(exception) => error(s"could not send account messages on $accountInfo with error ${exception.getMessage}")
-      case Success(_) => info(s"success in pushing account updates for $accountInfo")
-    }
+//    val publish = for {
+//      _ <- publisher.publishAccount(account, wallet, poolName, syncStatus)
+//      _ <- if (account.isInstanceOfEthereumLikeAccount) publisher.publishERC20Accounts(account, wallet, poolName, syncStatus)
+//           else Future.unit
+//    } yield ()
+//    Try(Await.result(publish, 10.seconds)) match {
+//      case Failure(exception) => error(s"could not send account messages on $accountInfo with error ${exception.getMessage}")
+//      case Success(_) => info(s"success in pushing account updates for $accountInfo")
+//    }
   }
 
 

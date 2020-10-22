@@ -7,6 +7,11 @@ buildInfoPackage := "co.ledger.wallet.daemon"
 // Add the branch name to the sbt prompt
 enablePlugins(GitBranchPrompt)
 enablePlugins(GitVersioning)
+enablePlugins(JavaAgent)
+
+javaAgents += "com.datadoghq" % "dd-java-agent" % "0.65.0" % "dist"
+
+//javaOptions += "-XX:NativeMemoryTracking=summary"
 
 lazy val buildInfoKeysInfo = Seq[BuildInfoKey](
   name,
@@ -162,3 +167,12 @@ libraryDependencies ++= Seq(
   compilerPlugin("com.github.ghik" %% "silencer-plugin" % "1.3.1"),
   "com.github.ghik" %% "silencer-lib" % "1.3.1" % Provided
 )
+
+//assemblyMergeStrategy in assembly := {
+//  case x => MergeStrategy.rename
+//}
+
+assemblyMergeStrategy in assembly := {
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case x => MergeStrategy.first
+}
