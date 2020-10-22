@@ -1,5 +1,5 @@
 ### BUILD STEP ###
-FROM openjdk:8u181-jdk-stretch as builder
+FROM adoptopenjdk:11-jdk-hotspot as builder
 ARG COMMIT_HASH=""
 ENV STAGE dev
 ENV COMMIT_HASH $COMMIT_HASH
@@ -9,7 +9,7 @@ ADD . /build
 RUN ./docker/build.sh
 
 #### RUN STEP ###
-FROM openjdk:8u181-jre-slim-stretch
+FROM adoptopenjdk:11-jre-hotspot
 ENV HTTP_PORT 9200
 ENV ADMIN_PORT 0
 ENV STAGE dev
