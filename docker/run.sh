@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
-OPTS="-http.port=:${HTTP_PORT} -admin.port=:${ADMIN_PORT} -javaagent:./dd-java-agent.jar"
+OPTS="-http.port=:${HTTP_PORT} -admin.port=:${ADMIN_PORT}"
 
 if [ -n "${WALLET_PROXY_ENABLED+x}" ] && [ "${WALLET_PROXY_ENABLED}" = "true" ];then
   OPTS="${OPTS} -Dhttp.proxyHost=${WALLET_PROXY_HOST} -Dhttp.proxyPort=${WALLET_PROXY_PORT}"
