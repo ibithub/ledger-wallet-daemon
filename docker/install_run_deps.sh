@@ -4,7 +4,7 @@ set -euxo pipefail
 mkdir -p /app/database # for sqlite (can be mount outside the container at runlevel)
 
 # Debug tools untils we have our ledger-stretch-slim image
-apt-get update && apt-get install -yq curl netcat iputils-ping iproute2 lsof procps
+apt-get update && apt-get install -yq curl netcat iputils-ping iproute2 lsof procps wget
 
 # Debug tools untils we have our ledger-stretch-slim image
 apt-get install -yq curl netcat iputils-ping iproute2 lsof procps
