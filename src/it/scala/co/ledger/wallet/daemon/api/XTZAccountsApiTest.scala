@@ -1,13 +1,15 @@
 package co.ledger.wallet.daemon.api
 
+import co.ledger.core._
 import co.ledger.wallet.daemon.controllers.TransactionsController.CreateXTZTransactionRequest
-import co.ledger.core.TezosOperationTag
 import co.ledger.wallet.daemon.models.FreshAddressView
 import co.ledger.wallet.daemon.models.coins.UnsignedTezosTransactionView
-import co.ledger.wallet.daemon.services.OperationQueryParams
+import co.ledger.wallet.daemon.services.{OperationQueryParams, SyncStatus}
 import co.ledger.wallet.daemon.utils.APIFeatureTest
 import com.fasterxml.jackson.databind.JsonNode
 import com.twitter.finagle.http.Status
+import org.mockito.ArgumentCaptor
+import org.mockito.Mockito.{times, verify}
 
 class XTZAccountsApiTest extends APIFeatureTest {
   val poolName = "tez_test_pool"
@@ -39,12 +41,20 @@ class XTZAccountsApiTest extends APIFeatureTest {
     val walletName = "xtzWalletAccountCreation"
     assertWalletCreation(poolName, walletName, "tezos", Status.Ok)
     assertCreateAccount(CORRECT_BODY_XTZ, poolName, walletName, Status.Ok)
+    assertSyncPools(Status.Ok)
     val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, index = 0, Status.Ok))
     assert(addresses.nonEmpty)
     info(s"Here are addresses : $addresses")
     assertSyncAccount(poolName, walletName, 0)
     val operations = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 1000, 0), Status.Ok))
     assert(operations.nonEmpty)
+    // verify XTZ NRT integration
+    val walletCaptor = ArgumentCaptor.forClass(classOf[Wallet])
+    verify(publisher, times(1)).publishAccount(any[Account], walletCaptor.capture(), meq(poolName), any[SyncStatus])
+    assert(walletCaptor.getValue.getWalletType == WalletType.TEZOS)
+    val walletOperationCaptor = ArgumentCaptor.forClass(classOf[Wallet])
+    verify(publisher, times(1)).publishOperation(any[Operation], any[Account], walletOperationCaptor.capture(), meq(poolName))
+    assert(walletOperationCaptor.getValue.getWalletType == WalletType.TEZOS)
   }
 
   test("Create XTZ Transaction") {

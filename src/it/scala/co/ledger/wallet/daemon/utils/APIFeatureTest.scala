@@ -3,16 +3,20 @@ package co.ledger.wallet.daemon.utils
 import java.util.Date
 
 import co.ledger.wallet.daemon.ServerImpl
-import co.ledger.wallet.daemon.services.{ECDSAService, OperationQueryParams}
+import co.ledger.wallet.daemon.services.{ECDSAService, OperationQueryParams, Publisher}
 import com.lambdaworks.codec.Base64
 import com.twitter.finagle.http.{Response, Status}
 import com.twitter.finatra.http.EmbeddedHttpServer
+import com.twitter.inject.Mockito
 import com.twitter.inject.server.FeatureTest
 import org.bitcoinj.core.Sha256Hash
 
-trait APIFeatureTest extends FeatureTest {
+trait APIFeatureTest extends FeatureTest with Mockito {
   val serverImpl = new ServerImpl
-  override val server = new EmbeddedHttpServer(serverImpl)
+  val publisher: Publisher = smartMock[Publisher]
+
+  override val server: EmbeddedHttpServer = new EmbeddedHttpServer(serverImpl)
+    .bind[Publisher].toInstance(publisher)
 
   def defaultHeaders: Map[String, String] = lwdBasicAuthorisationHeader("whitelisted")
 
