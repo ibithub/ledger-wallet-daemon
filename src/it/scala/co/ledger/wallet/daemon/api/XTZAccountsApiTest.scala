@@ -53,8 +53,11 @@ class XTZAccountsApiTest extends APIFeatureTest {
     verify(publisher, times(1)).publishAccount(any[Account], walletCaptor.capture(), meq(poolName), any[SyncStatus])
     assert(walletCaptor.getValue.getWalletType == WalletType.TEZOS)
     val walletOperationCaptor = ArgumentCaptor.forClass(classOf[Wallet])
-    verify(publisher, times(1)).publishOperation(any[Operation], any[Account], walletOperationCaptor.capture(), meq(poolName))
+    val operationCaptor = ArgumentCaptor.forClass(classOf[Operation])
+    verify(publisher, times(1)).publishOperation(operationCaptor.capture(), any[Account], walletOperationCaptor.capture(), meq(poolName))
     assert(walletOperationCaptor.getValue.getWalletType == WalletType.TEZOS)
+    assert(operationCaptor.getValue.getOperationType == OperationType.RECEIVE)
+    assert(operationCaptor.getValue.getRecipients.contains("tz2A5g8NJkXYZgsH39ZHra1z1uddhsFNqPew"))
   }
 
   test("Create XTZ Transaction") {
