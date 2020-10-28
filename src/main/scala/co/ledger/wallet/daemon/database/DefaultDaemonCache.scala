@@ -152,13 +152,7 @@ object DefaultDaemonCache extends Logging {
     }
 
     private def clearCache(poolName: String): Future[Option[Pool]] = Future {
-      val removedPool = cachedPools.get(poolName)
-        .map(pool => {
-          pool.eraseAllFromSessionStart()
-          pool
-        })
       cachedPools.remove(poolName)
-      removedPool
     }
 
     def addPoolIfNotExit(name: String, configuration: String): Future[Pool] = {
