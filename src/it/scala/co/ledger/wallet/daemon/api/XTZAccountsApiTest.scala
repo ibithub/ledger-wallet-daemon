@@ -3,6 +3,7 @@ package co.ledger.wallet.daemon.api
 import co.ledger.core._
 import co.ledger.wallet.daemon.controllers.TransactionsController.CreateXTZTransactionRequest
 import co.ledger.wallet.daemon.models.FreshAddressView
+import co.ledger.wallet.daemon.models.Operations.OperationView
 import co.ledger.wallet.daemon.models.coins.UnsignedTezosTransactionView
 import co.ledger.wallet.daemon.services.{OperationQueryParams, SyncStatus}
 import co.ledger.wallet.daemon.utils.APIFeatureTest
@@ -53,11 +54,11 @@ class XTZAccountsApiTest extends APIFeatureTest {
     verify(publisher, times(1)).publishAccount(any[Account], walletCaptor.capture(), meq(poolName), any[SyncStatus])
     assert(walletCaptor.getValue.getWalletType == WalletType.TEZOS)
     val walletOperationCaptor = ArgumentCaptor.forClass(classOf[Wallet])
-    val operationCaptor = ArgumentCaptor.forClass(classOf[Operation])
+    val operationCaptor = ArgumentCaptor.forClass(classOf[OperationView])
     verify(publisher, times(1)).publishOperation(operationCaptor.capture(), any[Account], walletOperationCaptor.capture(), meq(poolName))
     assert(walletOperationCaptor.getValue.getWalletType == WalletType.TEZOS)
-    assert(operationCaptor.getValue.getOperationType == OperationType.RECEIVE)
-    assert(operationCaptor.getValue.getRecipients.contains("tz2A5g8NJkXYZgsH39ZHra1z1uddhsFNqPew"))
+    assert(operationCaptor.getValue.opType == OperationType.RECEIVE)
+    assert(operationCaptor.getValue.recipients.contains("tz2A5g8NJkXYZgsH39ZHra1z1uddhsFNqPew"))
   }
 
   test("Create XTZ Transaction") {

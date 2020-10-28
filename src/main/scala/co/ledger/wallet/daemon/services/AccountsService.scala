@@ -98,7 +98,6 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
 
   def getUtxo(accountInfo: AccountInfo, offset: Int, batch: Int): Future[(List[UTXOView], Int)] = {
     checkSyncStatus(accountInfo)
-
     daemonCache.withAccountAndWallet(accountInfo) { (account, wallet) =>
       for {
         lastBlockHeight <- wallet.lastBlockHeight
@@ -277,13 +276,14 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
         }
     }
   }
+
   def latestOperations(accountInfo: AccountInfo, latests: Int): Future[Seq[OperationView]] = {
     daemonCache.withAccountAndWallet(accountInfo) {
       case (account, wallet) =>
         account.latestOperations(latests)
           .flatMap(ops => Future.sequence(
             ops.map(Operations.getView(_, wallet, account)))
-        )
+          )
     }
   }
 
@@ -327,15 +327,21 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
       case (account, wallet) =>
         val pushOperationFuture = account.operationsFromHeight(0, Int.MaxValue, 1, fromHeight.getOrElse(0))
           .flatMap { ops =>
-            Future.sequence(ops.map { op => publisher.publishOperation(op, account, wallet, accountInfo.poolName) }).map(_ => Unit)
+            Future
+              .sequence(ops.map(op => Operations.getView(op, wallet, account)))
+              .map(_.map(view =>
+                publisher.publishOperation(view, account, wallet, accountInfo.poolName)
+              ))
           }
+
         val pushErc20Future: Future[Unit] = if (account.isInstanceOfEthereumLikeAccount) {
           account.erc20Operations.flatMap { operations =>
-            Future.sequence(operations.map {
-              case (operation, erc20Operation) =>
-                publisher.publishERC20Operation(erc20Operation, operation, account, wallet, accountInfo.poolName)
-            })
-          }.map(_ => Unit)
+            Future
+              .sequence(operations.map { case (operation, erc20Operation) => Operations.getErc20View(erc20Operation, operation, wallet, account) })
+              .map(_.map(view =>
+                publisher.publishERC20Operation(view, account, wallet, accountInfo.poolName)
+              ))
+          }
         } else Future.unit
         pushOperationFuture.flatMap(_ => pushErc20Future)
     }
@@ -347,6 +353,7 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
       case _ =>
     }
   }
+
 
 }
 

@@ -1,16 +1,16 @@
 package co.ledger.wallet.daemon.services
 
-import co.ledger.core.{Account, ERC20LikeAccount, ERC20LikeOperation, Operation, Wallet}
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
-import co.ledger.wallet.daemon.models.Account._
-import co.ledger.wallet.daemon.models.Currency._
-import co.ledger.wallet.daemon.models.Operations
+import co.ledger.core.{Account, ERC20LikeAccount, Wallet}
+import co.ledger.wallet.daemon.models.Account.RichCoreAccount
+import co.ledger.wallet.daemon.models.Currency.RichCoreCurrency
+import co.ledger.wallet.daemon.models.Operations.OperationView
 import com.rabbitmq.client.{BuiltinExchangeType, ConnectionFactory}
 import com.twitter.finatra.json.FinatraObjectMapper
 import com.twitter.inject.Logging
 import javax.inject.Singleton
 
 import scala.collection.mutable
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 @Singleton
@@ -36,17 +36,14 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
 
   private val mapper = FinatraObjectMapper.create()
 
-  def publishOperation(op: Operation, account: Account, wallet: Wallet, poolName: String): Future[Unit] = {
-    operationPayload(op, account, wallet).map(payload =>
-      publish(poolName, getTransactionRoutingKeys(op, account, wallet.getCurrency.getName, poolName), payload)
-    )
+  def publishOperation(operationView: OperationView, account: Account, wallet: Wallet, poolName: String): Unit = {
+    val payload = mapper.writeValueAsBytes(operationView)
+    publish(poolName, getTransactionRoutingKeys(operationView, account, wallet.getCurrency.getName, poolName), payload)
   }
 
-  def publishERC20Operation(erc20Operation: ERC20LikeOperation, op: Operation, account: Account, wallet: Wallet, poolName: String): Future[Unit] = {
-    erc20OperationPayload(erc20Operation, op, account, wallet).map{ payload =>
-      val routingKey = getERC20TransactionRoutingKeys(erc20Operation, account, wallet.getCurrency.getName, poolName)
-      publish(poolName, routingKey, payload)
-    }
+  def publishERC20Operation(operationView: OperationView, account: Account, wallet: Wallet, poolName: String): Unit = {
+    val payload = mapper.writeValueAsBytes(operationView)
+    publish(poolName, getERC20TransactionRoutingKeys(operationView, account, wallet.getCurrency.getName, poolName), payload)
   }
 
   def publishAccount(account: Account, wallet: Wallet, poolName: String, syncStatus: SyncStatus): Future[Unit] = {
@@ -72,8 +69,8 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
   private def deleteOperationPayload(uid: String, account: Account, wallet: Wallet, poolName: String): Array[Byte] = {
     val map: Map[String, Any] = Map(
       "uid" -> uid,
-      "account" -> account.getIndex(),
-      "wallet" -> wallet.getName(),
+      "account" -> account.getIndex,
+      "wallet" -> wallet.getName,
       "poolName" -> poolName
     )
     mapper.writeValueAsBytes(map)
@@ -83,8 +80,8 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
     List(
       "transactions",
       poolName,
-      wallet.getName(),
-      account.getIndex().toString(),
+      wallet.getName,
+      account.getIndex.toString,
       "delete"
     )
   }
@@ -110,36 +107,24 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
     )
   }
 
-  private def erc20OperationPayload(erc20Operation: ERC20LikeOperation, operation: Operation, account: Account, wallet: Wallet): Future[Array[Byte]] = {
-    Operations.getErc20View(erc20Operation, operation, wallet, account).map{
-      mapper.writeValueAsBytes(_)
-    }
-  }
-
-  private def operationPayload(op: Operation, account: Account, wallet: Wallet): Future[Array[Byte]] = {
-    Operations.getView(op, wallet, account).map {
-      mapper.writeValueAsBytes(_)
-    }
-  }
-
-  private def getERC20TransactionRoutingKeys(erc20Op: ERC20LikeOperation, account: Account, currencyName: String, poolName: String): List[String] = {
+  private def getERC20TransactionRoutingKeys(operationView: OperationView, account: Account, currencyName: String, poolName: String): List[String] = {
     List(
       "transactions",
       poolName,
       currencyName,
       account.getIndex.toString,
       "erc20",
-      erc20Op.getOperationType.toString.toLowerCase()
+      operationView.opType.toString.toLowerCase()
     )
   }
 
-  private def getTransactionRoutingKeys(op: Operation, account: Account, currencyName: String, poolName: String): List[String] = {
+  private def getTransactionRoutingKeys(operationView: OperationView, account: Account, currencyName: String, poolName: String): List[String] = {
     List(
       "transactions",
       poolName,
       currencyName,
       account.getIndex.toString,
-      op.getOperationType.toString.toLowerCase
+      operationView.opType.toString.toLowerCase
     )
   }
 }

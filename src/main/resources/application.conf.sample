@@ -343,6 +343,8 @@ ethereum = {
       fast = 1.25
       fast = ${?ETH_FAST_FEE_FACTOR}
   }
+  gaslimitfactor = 2
+  gaslimitfactor = ${?ETH_GAS_LIMIT_FACTOR}
 }
 
 tezos = {

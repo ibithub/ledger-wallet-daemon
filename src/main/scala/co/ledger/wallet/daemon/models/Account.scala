@@ -21,6 +21,7 @@ import co.ledger.wallet.daemon.schedulers.observers.{SynchronizationEventReceive
 import co.ledger.wallet.daemon.services.SyncStatus
 import co.ledger.wallet.daemon.utils.HexUtils
 import co.ledger.wallet.daemon.utils.Utils.{RichBigInt, RichCoreBigInt}
+import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.google.common.primitives.UnsignedInteger
 import com.twitter.inject.Logging
@@ -219,10 +220,23 @@ object Account extends Logging {
       opsCount <- operationCounts(a)
     } yield AccountView(walletName, a.getIndex, b, opsCount, a.getRestoreKey, cv, syncStatus)
 
-  def erc20AccountView(a: core.Account, erc20Account: ERC20LikeAccount, wallet: Wallet, syncStatus: SyncStatus)(implicit ex: ExecutionContext): Future[ERC20FullAccountView] =
-      a.erc20Balance(erc20Account.getToken.getContractAddress).flatMap(
-        balance => ERC20FullAccountView.fromERC20Account(erc20Account, a, syncStatus, balance, wallet.getName)
-      )
+
+  def erc20AccountView(
+      a: core.Account,
+      erc20Account: ERC20LikeAccount,
+      wallet: Wallet,
+      syncStatus: SyncStatus
+  )(implicit ex: ExecutionContext): Future[ERC20FullAccountView] = {
+    for {
+      balance <- a.erc20Balance(erc20Account.getToken.getContractAddress)
+    } yield ERC20FullAccountView.fromERC20Account(
+      erc20Account,
+      a,
+      syncStatus,
+      balance,
+      wallet.getName
+    )
+  }
 
   def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[BTCSigPub], currentHeight: Long, a: core.Account, c: core.Currency): Future[String] = {
     c.parseUnsignedBTCTransaction(rawTx, currentHeight) match {
@@ -374,7 +388,7 @@ object Account extends Logging {
         } yield {
           a.asEthereumLikeAccount()
             .buildTransaction()
-            .setGasLimit(c.convertAmount(gasLimit))
+            .setGasLimit(c.convertAmount((BigDecimal(gasLimit) * BigDecimal(DaemonConfiguration.ETH_SMART_CONTRACT_GAS_LIMIT_FACTOR)).setScale(0, BigDecimal.RoundingMode.CEILING).toBigInt()))
             .sendToAddress(c.convertAmount(0), contract)
             .setInputData(inputData)
         }
@@ -688,15 +702,15 @@ object ERC20AccountView {
 }
 
 case class ERC20FullAccountView(
-  @JsonProperty("wallet_name") walletName: String,
-  @JsonProperty("index") index: Int,
-  @JsonProperty("balance") balance: scala.BigInt,
-  @JsonProperty("status") status: SyncStatus,
-  @JsonProperty("contract_address") contractAddress: String,
-  @JsonProperty("name") name: String,
-  @JsonProperty("number_of_decimal") numberOrDecimal: Int,
-  @JsonProperty("symbol") symbol: String,
-)
+                                 @JsonProperty("wallet_name") walletName: String,
+                                 @JsonProperty("index") index: Int,
+                                 @JsonProperty("balance") balance: scala.BigInt,
+                                 @JsonProperty("status") status: SyncStatus,
+                                 @JsonProperty("contract_address") contractAddress: String,
+                                 @JsonProperty("name") name: String,
+                                 @JsonProperty("number_of_decimal") numberOrDecimal: Int,
+                                 @JsonProperty("symbol") symbol: String
+                               )
 
 object ERC20FullAccountView {
   def fromERC20Account(
@@ -704,19 +718,18 @@ object ERC20FullAccountView {
                         baseAccount: Account,
                         status: SyncStatus,
                         erc20Balance: scala.BigInt,
-                        walletName: String,
-                      ): Future[ERC20FullAccountView] = Future.successful(
-                        ERC20FullAccountView(
-                          walletName,
-                          baseAccount.getIndex,
-                          erc20Balance,
-                          status,
-                          erc20Account.getToken.getContractAddress,
-                          erc20Account.getToken.getName,
-                          erc20Account.getToken.getNumberOfDecimal,
-                          erc20Account.getToken.getSymbol,
-                        )
-                      )
+                        walletName: String
+                      ): ERC20FullAccountView =
+  ERC20FullAccountView(
+    walletName,
+    baseAccount.getIndex,
+    erc20Balance,
+    status,
+    erc20Account.getToken.getContractAddress,
+    erc20Account.getToken.getName,
+    erc20Account.getToken.getNumberOfDecimal,
+    erc20Account.getToken.getSymbol
+  )
 }
 
 case class DerivationView(
