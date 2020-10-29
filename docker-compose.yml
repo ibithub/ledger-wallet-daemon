@@ -1,10 +1,10 @@
 version: '3.4'
 
 services:
-  postgres-server-ssl:
+  postgres:
     image: postgres
     environment:
-      POSTGRES_DB: wallet_daemon_test
+      POSTGRES_DB: wallet_daemon
       POSTGRES_USER: ledger
       POSTGRES_PASSWORD: ledger_secret
     healthcheck:
@@ -15,23 +15,14 @@ services:
       start_period: 30s
     ports:
       - "5432:5432"
-    command: -c "ssl=on" -c "ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key" -c "ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem"
-  wallet-daemon:
-    image: ledgerhq/ledger-wallet-daemon:latest
-    environment:
-      CORE_DATABASE_ENGINE: postgres
-      CORE_PG_HOST: postgres-server-ssl
-      CORE_PG_USER: ledger
-      CORE_PG_PWD: ledger_secret
-      CORE_PG_DB_NAME_PREFIX: wallet_daemon_
-    entrypoint: /app/run.sh -Dscala.concurrent.context.numThreads=x8 -Dscala.concurrent.context.maxThreads=x8
-    healthcheck:
-      test: "command -v curl && curl -fsS http://wallet-daemon:9200/_health"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
+  rabbitmq:
+    image: rabbitmq:${RABBITMQ_VERSION:-management}
+    command: rabbitmq-server
     ports:
-      - "9200:9200"
-    depends_on:
-      - postgres-server-ssl
+      - "15672:15672"  # RabbitMQ management UI
+      - "5672:5672"    # RabbitMQ original port (to be accessed from host)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 15s
+      retries: 100
