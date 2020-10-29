@@ -12,14 +12,14 @@ import com.twitter.finagle.http.Status
 class XTZAccountsApiTest extends APIFeatureTest {
   val poolName = "tez_test_pool"
 
-  override def beforeEach(): Unit = {
+  override def beforeAll(): Unit = {
     createPool(poolName)
+    when(publisher.publishAccount(any[Account], any[Wallet], meq(poolName), any[SyncStatus])).thenReturn(Future.unit)
+    // when(publisher.publishOperation(any[OperationView], any[Account], any[Wallet], meq(poolName))).thenReturn(Future.unit)
   }
 
-  override def afterEach(): Unit = {
+  override def afterAll(): Unit = {
     deletePool(poolName)
-    // prevent calling createPool before libCore finishes removing the data
-    Thread.sleep(10)
   }
 
   private val CORRECT_BODY_XTZ =
@@ -29,8 +29,8 @@ class XTZAccountsApiTest extends APIFeatureTest {
         {
           "owner": "main",
           "path": "44'/1729'/0'",
-          "pub_key": "04AF5696511E23B9E3DC5A527ABC6929FAE708DEFB5299F96CFA7DD9F936FE747DEA6650574572F94869DBE7DF30A5CBD77C5579E5D1BA2867EF8032EE87259B40",
-          "chain_code": ""
+          "pub_key": "0288FE6B557457B08D15519288E33FAE30D646992B6C10FF18E69E3134D2A10113",
+          "chain_code": "F85FDD6DBA5E02A946E47D492218D8BF913BF33F30D9B9C04D2EE5093186D637"
         }
       ]
     }"""
@@ -62,11 +62,11 @@ class XTZAccountsApiTest extends APIFeatureTest {
     val add = addresses.head.address
     val receiverAddress = "tz2LLBZYevBRjNBvzJ24GbAkJ5bNFDQi3KQv"
 
-    val txBadRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress,
+/*    val txBadRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress,
                                                    "1000", false, Some("800"), Some("800"), None, None)
     val txBadRequestJson = server.mapper.writeValueAsString(txBadRequest)
     // Neither fees nor fees_level has been provided, expect failure due to MethodValidation check
-    assertCreateTransaction(txBadRequestJson, poolName, walletName, 0, Status.BadRequest)
+    assertCreateTransaction(txBadRequestJson, poolName, walletName, 0, Status.BadRequest)*/
 
     // Not enough funds error
     val txTooPoorRequest = CreateXTZTransactionRequest(TezosOperationTag.OPERATION_TAG_TRANSACTION, receiverAddress,
@@ -82,7 +82,7 @@ class XTZAccountsApiTest extends APIFeatureTest {
     info(s"Here is transaction view : $transactionView")
     assert(transactionView.operationType == TezosOperationTag.OPERATION_TAG_TRANSACTION)
     assert(transactionView.value == "1")
-    assert(transactionView.signing_pubkey == "04AF5696511E23B9E3DC5A527ABC6929FAE708DEFB5299F96CFA7DD9F936FE747DEA6650574572F94869DBE7DF30A5CBD77C5579E5D1BA2867EF8032EE87259B40")
+    assert(transactionView.signing_pubkey == "0288FE6B557457B08D15519288E33FAE30D646992B6C10FF18E69E3134D2A10113")
     assert(transactionView.receiver == Some(receiverAddress))
     assert(transactionView.sender == add)
 
