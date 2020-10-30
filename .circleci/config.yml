@@ -13,6 +13,20 @@ aliases:
       - wallet-daemon-{{ .Branch }}-{{ checksum "build.sbt" }}
       - wallet-daemon-{{ .Branch }}-
       - wallet-daemon-
+  - &wait_compose_healthy
+    name: Wait for all service dependencies to become healthy
+    command: |
+      for try in {1..10}; do
+        sleep 30
+        if [ "$(docker ps --filter 'name=ci_' --filter 'health=unhealthy' --filter 'health=starting' --format '{{.Names}}')" = "" ]; then
+          docker-compose -f $docker_compose_config -p ci ps
+          exit 0
+        fi
+        docker-compose -f $docker_compose_config -p ci ps
+        echo
+      done
+      echo "Error : some service dependencies are not healthy at the end of the timeout" >&2
+      exit 1
 
 jobs:
   compile:
@@ -100,6 +114,114 @@ jobs:
             SBT_OPTS: -Xmx1g -XX:MaxMetaspaceSize=512M
       - codecov/upload:
           file: target/scala-2.12/coverage-report/cobertura.xml
+
+  test_image:
+    description: Enforce compliance tests on the Docker image with the goss framework
+    executor: docker/machine-executor
+    parameters:
+      docker_compose_configuration:
+        description: |
+          Name of the docker-compose configuration file used to setup an environment powering the
+          service dependencies. The file is expected to be stored alongside the CircleCI configuration
+          config.yml.
+        type: string
+        default: ""
+      docker_compose_env_vars:
+        description: Environment variables to pass to docker-compose
+        type: string
+        default: ""
+      docker_compose_single_use:
+        description: |
+          The dgoss tool is run twice : once to get human-readable output and a second time
+          to get JUnit output that can be parsed by CircleCI.
+          Some applications may be not re-run twice from scratch because there is some persistent
+          state stored in a database.
+          If true, the docker-compose environment powering the service dependencies will be reset
+          before the second dgoss execution.
+        type: boolean
+        default: false
+      goss_version:
+        description: goss version to install
+        type: string
+        default: v0.3.14
+      dgoss_docker_env_vars:
+        description: Environment variables that dgoss should provide to the container
+        type: string
+        default: ""
+      goss_sleep:
+        description: Time to sleep after running container (and optionally goss_wait.yaml) and before running tests
+        type: string
+        default: 1s
+      docker_project_name:
+        description:
+          Name of the project to build
+        type: string
+        default: ""
+    steps:
+      - docker/set_image_name_env_vars:
+          docker_project_name: << parameters.docker_project_name >>
+      - docker/load_image
+      - checkout
+      - when:
+          condition: << parameters.docker_compose_configuration >>
+          steps:
+            - when:
+                condition: << parameters.docker_compose_env_vars >>
+                steps:
+                  - run:
+                      name: Set environment variables read by docker-compose
+                      # '<<' must be escaped in v2.1+
+                      # https://discuss.circleci.com/t/2-1-config-and-build-processing/24102/31
+                      command: |
+                        cat > .env \<< EOF
+                        << parameters.docker_compose_env_vars >>
+                        EOF
+            - run:
+                name: Display docker-compose configuration
+                command: |
+                  # eval is needed for the CIRCLE_WORKING_DIRECTORY variable as it contains a non-expanded '~'
+                  eval docker_compose_config=${CIRCLE_WORKING_DIRECTORY}/.circleci/<< parameters.docker_compose_configuration >>
+                  echo "export docker_compose_config='$docker_compose_config'" >> $BASH_ENV
+                  docker-compose -f $docker_compose_config -p ci config
+      - when:
+          condition: << parameters.dgoss_docker_env_vars >>
+          steps:
+            - run:
+                name: Set docker test environment variables
+                command: |
+                  cat > docker.env \<< EOF
+                  << parameters.dgoss_docker_env_vars >>
+                  EOF
+                  echo "export docker_opts='${docker_opts:-} --env-file docker.env'" >> $BASH_ENV
+      - when:
+          condition: << parameters.docker_compose_configuration >>
+          steps:
+            - docker/docker_login
+            - run:
+                name: Setup docker-compose environment powering service dependencies
+                command: |
+                  docker-compose -f $docker_compose_config -p ci up -d
+                  # The default bridge network created by docker-compose is named "<project name>_default"
+                  echo "export docker_opts='${docker_opts:-} --network ci_default'" >> $BASH_ENV
+            - run: *wait_compose_healthy
+      - run:
+          name: Run wallet-daemon service
+          command: |
+            echo "Executing service run with the following arguments :" $docker_opts
+            docker run -d $docker_opts -p 9200:9200 ${DOCKER_NAMESPACE}/${PROJECT_NAME}:${CIRCLE_SHA1}
+      - run:
+          name: Check wallet-daemon service
+          command: |
+            for try in {1..10}; do
+              sleep 30
+              status=$(curl http://0.0.0.0:9200/_health -w "%{http_code}\n" -o junk 2> /dev/null)
+              case $status in
+                000) echo "Wallet daemon not ready yet. Retry 30 seconds later" ;;
+                200) echo "Wallet daemon service is up !"; break ;;
+                  *) echo "Wallet daemon returns status $status (GET http://0.0.0.0:9200/_health)." ; exit 1 ;;
+              esac
+            done
+
 workflows:
   build_test_and_publish:
     jobs:
@@ -120,17 +242,27 @@ workflows:
             - run:
                 name: Set version environment variable
                 command: echo "export COMMIT_HASH=$(git rev-parse HEAD)" >> $BASH_ENV
+            - docker/set_docker_tag_env_var
+          docker_build_args:
+            --build-arg docker_tag=$DOCKER_TAG
           filters: *filter_all_tags
-      - docker/test_image:
+      - test_image:
           requires:
             - docker/build_image
           docker_compose_configuration: test_image_env.yml
+          docker_compose_env_vars: |-
+            CORE_PG_HOST=postgres
+            CORE_PG_USER=postgres
+            CORE_PG_PWD=ledger_secret
           dgoss_docker_env_vars: |-
             RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
+            CORE_PG_HOST=postgres
+            CORE_PG_USER=postgres
+            CORE_PG_PWD=ledger_secret
           filters: *filter_all_tags
       - docker/publish_image:
           requires:
-            - docker/test_image
+            - test_image
           filters:
             branches:
               only:
@@ -146,7 +278,7 @@ workflows:
       - docker/publish_image:
           context: githubpkg
           requires:
-            - docker/test_image
+            - test_image
           filters:
             branches:
               only:
