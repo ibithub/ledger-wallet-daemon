@@ -98,7 +98,6 @@ class DefaultDaemonCache() extends DaemonCache with Logging {
         val offset = 0
         for {
           ops <- account.operations(offset, batch, fullOp)
-          _ = ops.map(op => debug(s"OPTYPE=${op.getOperationType}"))
           realBatch = if (ops.size < batch) ops.size else batch
           next = if (realBatch < batch) None else Option(UUID.randomUUID())
           previous = None

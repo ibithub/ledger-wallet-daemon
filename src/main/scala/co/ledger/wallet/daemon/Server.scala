@@ -4,6 +4,7 @@ import co.ledger.wallet.daemon.controllers._
 import co.ledger.wallet.daemon.filters._
 import co.ledger.wallet.daemon.mappers._
 import co.ledger.wallet.daemon.modules.{DaemonCacheModule, DaemonJacksonModule, PublisherModule}
+import co.ledger.wallet.daemon.services.AccountSyncModule
 import co.ledger.wallet.daemon.utils.NativeLibLoader
 import com.google.inject.Module
 import com.twitter.finagle.http.{Request, Response}
@@ -21,7 +22,8 @@ class ServerImpl extends HttpServer {
 
   override val modules: Seq[Module] = Seq(
     DaemonCacheModule,
-    PublisherModule
+    PublisherModule,
+    AccountSyncModule
   )
 
   override protected def configureHttp(router: HttpRouter): Unit = {

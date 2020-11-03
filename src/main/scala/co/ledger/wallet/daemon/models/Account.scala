@@ -113,14 +113,14 @@ object Account extends Logging {
     def operations(offset: Int, batch: Int, fullOp: Int)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] =
       Account.operations(offset, batch, fullOp, a.queryOperations())
 
+    def latestOperations(latests: Int)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] =
+      Account.latestOperations(latests, a.queryOperations())
+
     def operationsFromHeight(offset: Int, batch: Int, fullOp: Int, fromHeight: Long)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] = {
       val opQuery: OperationQuery = a.queryOperations()
       opQuery.filter().opAnd(QueryFilter.blockHeightGt(fromHeight))
       Account.operations(offset, batch, fullOp, opQuery)
     }
-
-    def latestOperations(latests: Int)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] =
-      Account.latestOperations(latests, a.queryOperations())
 
     def freshAddresses(implicit ec: ExecutionContext): Future[Seq[core.Address]] =
       Account.freshAddresses(a)
@@ -219,7 +219,6 @@ object Account extends Logging {
       b <- balance(a)
       opsCount <- operationCounts(a)
     } yield AccountView(walletName, a.getIndex, b, opsCount, a.getRestoreKey, cv, syncStatus)
-
 
   def erc20AccountView(
       a: core.Account,

@@ -254,14 +254,14 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
     (queryParams.next, queryParams.previous) match {
       case (Some(n), _) =>
         // next has more priority, using database batch instead queryParams.batch
-        info(LogMsgMaker.newInstance("Retrieve next batch operation").toString())
+        info(LogMsgMaker.newInstance(s"Retrieve next batch operation for $accountInfo").toString())
         daemonCache.getNextBatchAccountOperations(n, queryParams.fullOp, accountInfo)
       case (_, Some(p)) =>
-        info(LogMsgMaker.newInstance("Retrieve previous operations").toString())
+        info(LogMsgMaker.newInstance(s"Retrieve previous operations $accountInfo").toString())
         daemonCache.getPreviousBatchAccountOperations(p, queryParams.fullOp, accountInfo)
       case _ =>
         // new request
-        info(LogMsgMaker.newInstance("Retrieve latest operations").toString())
+        info(LogMsgMaker.newInstance(s"Retrieve latest operations $accountInfo").toString())
         daemonCache.getAccountOperations(queryParams.batch, queryParams.fullOp, accountInfo)
     }
   }
