@@ -59,7 +59,7 @@ object Currency {
 
   def parseUnsignedXTZTransaction(currency: core.Currency)(rawTx: Array[Byte]): Either[String, core.TezosLikeTransaction] =
     currency.getWalletType match {
-      case core.WalletType.TEZOS => Right(core.TezosLikeTransactionBuilder.parseRawUnsignedTransaction(currency, rawTx))
+      case core.WalletType.TEZOS => Right(core.TezosLikeTransactionBuilder.parseRawUnsignedTransaction(currency, rawTx, "TEZOS_PROTOCOL_UPDATE_BABYLON"))
       case w => Left(s"$w is not Tezos")
     }
 
