@@ -1,40 +1,34 @@
 package co.ledger.wallet.daemon.services
 
+import java.util.concurrent.atomic.AtomicInteger
+
+import akka.actor.ActorSelection
 import co.ledger.core.{Account, ERC20LikeAccount, Wallet}
-import co.ledger.wallet.daemon.models.Account.RichCoreAccount
-import co.ledger.wallet.daemon.models.Currency.RichCoreCurrency
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
+import co.ledger.wallet.daemon.models.Account._
+import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Operations.OperationView
-import com.rabbitmq.client.{BuiltinExchangeType, ConnectionFactory}
+import co.ledger.wallet.daemon.models.Pool
+import com.newmotion.akka.rabbitmq.{Channel, ChannelMessage}
 import com.twitter.finatra.json.FinatraObjectMapper
 import com.twitter.inject.Logging
-import javax.inject.Singleton
 
-import scala.collection.mutable
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-@Singleton
-class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
-  private val conn = {
-    val factory = new ConnectionFactory
-    factory.setUri(rabbitMQUri)
-    val conn = factory.newConnection
-    info(s"RabbitMQ: connected to ${conn.getAddress.toString}")
-    conn
-  }
-  private val chan = conn.createChannel()
-  private val declaredExchanges = mutable.HashSet[String]()
 
-  // Channel is not recommended to be used concurrently, hence synchronized
-  private def publish(exchangeName: String, routingKeys: List[String], payload: Array[Byte]): Unit = synchronized {
-    if (!declaredExchanges.contains(exchangeName)) {
-      chan.exchangeDeclare(exchangeName, BuiltinExchangeType.TOPIC, true)
-      declaredExchanges += exchangeName
-    }
-    chan.basicPublish(exchangeName, routingKeys.mkString("."), null, payload)
-  }
+class RabbitMQPublisher(poolPublisher: ActorSelection) extends Logging with Publisher {
+
+  private val totalOpPublished: AtomicInteger = new AtomicInteger(0)
 
   private val mapper = FinatraObjectMapper.create()
+
+  private def publish(exchangeName: String, routingKeys: List[String], payload: Array[Byte]): Unit = {
+    if (totalOpPublished.incrementAndGet() % 100 == 0) {
+      logger.info(s"RabbitMQPublisher published ${totalOpPublished.get()} messages on exchange $exchangeName")
+    }
+    val publish: Channel => Unit = _.basicPublish(exchangeName, routingKeys.mkString("."), null, payload)
+    poolPublisher ! ChannelMessage(publish, dropIfNoChannel = false)
+  }
 
   def publishOperation(operationView: OperationView, account: Account, wallet: Wallet, poolName: String): Unit = {
     val payload = mapper.writeValueAsBytes(operationView)
@@ -46,9 +40,9 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
     publish(poolName, getERC20TransactionRoutingKeys(operationView, account, wallet.getCurrency.getName, poolName), payload)
   }
 
-  def publishAccount(account: Account, wallet: Wallet, poolName: String, syncStatus: SyncStatus): Future[Unit] = {
-    accountPayload(account, wallet, syncStatus).map { payload =>
-      publish(poolName, getAccountRoutingKeys(account, wallet, poolName), payload)
+  def publishAccount(pool: Pool, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Unit] = {
+    accountPayload(pool, account, wallet, syncStatus).map { payload =>
+      publish(pool.name, getAccountRoutingKeys(account, wallet, pool.name), payload)
     }
   }
 
@@ -59,7 +53,7 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
   }
 
   def publishDeletedOperation(uid: String, account: Account, wallet: Wallet, poolName: String): Future[Unit] = {
-    Future{
+    Future {
       val routingKey = deleteOperationRoutingKeys(account, wallet, poolName)
       val payload = deleteOperationPayload(uid, account, wallet, poolName)
       publish(poolName, routingKey, payload)
@@ -86,13 +80,13 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
     )
   }
 
-  private def accountPayload(account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = this.synchronized {
-    account.accountView(wallet.getName, wallet.getCurrency.currencyView, syncStatus).map {
+  private def accountPayload(pool: Pool, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = {
+    account.accountView(pool, wallet, wallet.getCurrency.currencyView, syncStatus).map {
       mapper.writeValueAsBytes(_)
     }
   }
 
-  private def erc20AccountPayload(erc20Account: ERC20LikeAccount, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = this.synchronized {
+  private def erc20AccountPayload(erc20Account: ERC20LikeAccount, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = {
     account.erc20AccountView(erc20Account, wallet, syncStatus).map {
       mapper.writeValueAsBytes(_)
     }

@@ -8,15 +8,15 @@ case class AccountInfo(accountIndex: Int, walletInfo: WalletInfo) {
 }
 
 object AccountInfo {
-  def apply(accountIndex: Int, walletName: String, poolName: String, pubKey: String): AccountInfo =
-    apply(accountIndex, WalletInfo(walletName, poolName, pubKey))
+  def apply(accountIndex: Int, walletName: String, poolName: String): AccountInfo =
+    apply(accountIndex, WalletInfo(walletName, poolName))
 }
 
 case class WalletInfo(walletName: String, poolInfo: PoolInfo)
 
 object WalletInfo {
-  def apply(walletName: String, poolName: String, pubKey: String): WalletInfo =
-    apply(walletName, PoolInfo(poolName, pubKey))
+  def apply(walletName: String, poolName: String): WalletInfo =
+    apply(walletName, PoolInfo(poolName))
 }
 
-case class PoolInfo(poolName: String, pubKey: String)
+case class PoolInfo(poolName: String)

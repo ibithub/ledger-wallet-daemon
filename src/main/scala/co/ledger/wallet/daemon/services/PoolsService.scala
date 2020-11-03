@@ -1,8 +1,7 @@
 package co.ledger.wallet.daemon.services
 
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.database.DaemonCache
-import co.ledger.wallet.daemon.database.DefaultDaemonCache.User
 import co.ledger.wallet.daemon.exceptions.WalletPoolNotFoundException
 import co.ledger.wallet.daemon.models.{PoolInfo, WalletPoolView}
 import co.ledger.wallet.daemon.schedulers.observers.SynchronizationResult
@@ -19,8 +18,8 @@ class PoolsService @Inject()(daemonCache: DaemonCache, accountSynchronizer: Acco
     daemonCache.createWalletPool(poolInfo, configuration.toString).flatMap(_.view)
   }
 
-  def pools(user: User): Future[Seq[WalletPoolView]] = {
-    daemonCache.getWalletPools(user.pubKey).flatMap { pools => Future.sequence(pools.map(_.view)) }
+  def pools(): Future[Seq[WalletPoolView]] = {
+    daemonCache.getAllPools.map(pools => Future.sequence(pools.map(_.view))).flatten
   }
 
   def pool(poolInfo: PoolInfo): Future[Option[WalletPoolView]] = {
@@ -31,10 +30,10 @@ class PoolsService @Inject()(daemonCache: DaemonCache, accountSynchronizer: Acco
   }
 
   def removePool(poolInfo: PoolInfo): Future[Unit] = {
-    daemonCache.getWalletPool(poolInfo).map(pool => pool.fold(
+    daemonCache.getWalletPool(poolInfo).flatMap(pool => pool.fold(
       Future.failed[Unit](WalletPoolNotFoundException(poolInfo.poolName))
     )(p => accountSynchronizer.unregisterPool(p, poolInfo)
-    )).map(_ => daemonCache.deleteWalletPool(poolInfo))
+    )).flatMap(_ => daemonCache.deleteWalletPool(poolInfo))
       .map(_ => info(s"Pool $poolInfo has been deleted"))
   }
 

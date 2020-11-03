@@ -1,7 +1,6 @@
 package co.ledger.wallet.daemon.configurations
 
 import java.net.URL
-import java.util.Locale
 
 import co.ledger.wallet.daemon.utils.NetUtils
 import co.ledger.wallet.daemon.utils.NetUtils.Host
@@ -10,12 +9,10 @@ import com.typesafe.config.ConfigFactory
 import slick.jdbc.JdbcProfile
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
 import scala.util.Try
 
 object DaemonConfiguration extends Logging {
   private val config = ConfigFactory.load()
-  private val PERMISSION_CREATE_USER: Int = 0x01
   private val DEFAULT_SYNC_INTERVAL: Int = 60 // 60 seconds
   private val DEFAULT_RESYNC_CHECK_INTERVAL: Int = 3 // 5 seconds
   private val DEFAULT_SYNC_STATUS_CHECK_INTERVAL: Int = 3 // 3 seconds
@@ -40,43 +37,25 @@ object DaemonConfiguration extends Logging {
    */
   private val RIPPLE_LAST_LEDGER_SEQUENCE_OFFSET: Int = 10512000
 
-  val proxy: Option[Proxy] = {
-    if (config.getBoolean("proxy.enabled")) {
-      val p = Proxy(config.getString("proxy.host"), config.getInt("proxy.port"))
-      info(s"[Proxy] - ${p.host}:${p.port}")
-      Some(p)
-    } else {
-      info("[Proxy] - Disabled")
-      None
-    }
+  val proxy: Proxy = {
+    val p = Proxy(config.getString("proxy.host"), config.getInt("proxy.port"))
+    info(s"[Proxy Configuration] - ${p.host}:${p.port} - enabled = ${config.getBoolean("proxy.enabled")}")
+    p
   }
+
 
   val supportedNativeSegwitCurrencies: List[String] = if (config.hasPath("native_segwit_currencies")) {
     config.getStringList("native_segwit_currencies").asScala.toList
   } else List[String]()
 
-  val adminUsers: Seq[(String, String)] = if (config.hasPath("demo_users")) {
-    val usersConfig = config.getConfigList("demo_users").asScala
+  val adminUsers: Seq[(String, String)] = if (config.hasPath("default_users")) {
+    val usersConfig = config.getConfigList("default_users").asScala
     for {
       userConfig <- usersConfig
     } yield (userConfig.getString("username"), userConfig.getString("password"))
 
   } else {
     List[(String, String)]()
-  }
-
-  val whiteListUsers: Seq[(String, Int)] = if (config.hasPath("whitelist")) {
-    val usersConfig = config.getConfigList("whitelist")
-    val users = new ListBuffer[(String, Int)]()
-    for (i <- 0 until usersConfig.size()) {
-      val userConfig = usersConfig.get(i)
-      val pubKey = userConfig.getString("key").toUpperCase(Locale.US)
-      val permissions = if (Try(userConfig.getBoolean("account_creation")).getOrElse(false)) PERMISSION_CREATE_USER else 0
-      users += ((pubKey, permissions))
-    }
-    users.toList
-  } else {
-    List[(String, Int)]()
   }
 
   val dbProfileName: String = Try(config.getString("database_engine")).toOption.getOrElse("sqlite3")
@@ -91,30 +70,26 @@ object DaemonConfiguration extends Logging {
     case others => throw new Exception(s"Unknown database backend $others")
   }
 
-  val isWhiteListDisabled: Boolean = if (!config.hasPath("disable_whitelist")) false else config.getBoolean("disable_whitelist")
-
-  val updateWalletConfig: Boolean = if (config.hasPath("update_wallet_config")) config.getBoolean("update_wallet_config") else false
-
   object Synchronization {
-    val syncInterval = if (config.hasPath("synchronization.sync_interval_in_seconds")) {
+    val syncInterval: Int = if (config.hasPath("synchronization.sync_interval_in_seconds")) {
       config.getInt("synchronization.sync_interval_in_seconds")
     }
     else {
       DEFAULT_SYNC_INTERVAL
     }
-    val syncAccountRegisterInterval = if (config.hasPath("synchronization.sync_account_register_interval_in_seconds")) {
+    val syncAccountRegisterInterval: Int = if (config.hasPath("synchronization.sync_account_register_interval_in_seconds")) {
       config.getInt("synchronization.sync_account_register_interval_in_seconds")
     }
     else {
       DEFAULT_SYNC_ACCOUNT_REGISTER_INTERVAL
     }
-    val syncStatusCheckInterval = if (config.hasPath("synchronization.sync_status_check_interval_in_seconds")) {
+    val syncStatusCheckInterval: Int = if (config.hasPath("synchronization.sync_status_check_interval_in_seconds")) {
       config.getInt("synchronization.sync_status_check_interval_in_seconds")
     }
     else {
       DEFAULT_SYNC_STATUS_CHECK_INTERVAL
     }
-    val resyncCheckInterval = if (config.hasPath("synchronization.resync_check_interval_in_seconds")) {
+    val resyncCheckInterval: Int = if (config.hasPath("synchronization.resync_check_interval_in_seconds")) {
       config.getInt("synchronization.resync_check_interval_in_seconds")
     }
     else {
@@ -166,6 +141,16 @@ object DaemonConfiguration extends Logging {
       1000
     }
 
+  val coreDbConfig = (for {
+    dbPort <- Try(config.getString("postgres.port"))
+    dbHost <- Try(config.getString("postgres.host"))
+    dbUserName <- Try(config.getString("postgres.username"))
+    dbPwd <- Try(config.getString("postgres.password"))
+    dbPrefix <- Try(config.getString("postgres.core.db_name_prefix"))
+    maxCnx <- Try(config.getInt("postgres.core.pool_size"))
+  } yield CoreDbConfig(dbHost, dbPort, dbUserName, dbPwd, dbPrefix, maxCnx))
+    .get // We have to fail fast if configuration is missing
+
   // The core pool operation size
   val corePoolOpSizeFactor: Int =
     if (config.hasPath("core.ops_threads_factor")) {
@@ -175,7 +160,7 @@ object DaemonConfiguration extends Logging {
 
   val isPrintCoreLibLogsEnabled: Boolean = config.hasPath("debug.print_core_logs") && config.getBoolean("debug.print_core_logs")
 
-  lazy val coreDataPath: String = Try(config.getString("core_data_path")).getOrElse("./core_data")
+  lazy val coreDataPath: String = Try(config.getString("core.core_data_path")).getOrElse("./core_data")
 
   val explorer: ExplorerConfig = {
     val explorer = config.getConfig("explorer")
@@ -207,14 +192,15 @@ object DaemonConfiguration extends Logging {
     } else {
       DEFAULT_CLIENT_CONNECTION_TTL
     }
-    val paths = api.getConfigList("paths").asScala.toList.map { path =>
+    val explorerInfos = api.getConfigList("paths").asScala.toList.map { path =>
       val currency = path.getString("currency")
       val host = path.getString("host")
       val port = path.getInt("port")
       val fallback = Try(path.getString("fallback")).toOption
       val explorerVersion = Try(path.getString("explorer_version")).toOption
       val disableSyncToken = Try(path.getBoolean("disable_sync_token")).getOrElse(false)
-      currency -> PathConfig(host, port, disableSyncToken, fallback, explorerVersion)
+      val feesPath = Try(path.getString("fees_path")).toOption.map(FeesPath)
+      currency -> PathConfig(host, port, disableSyncToken, fallback, explorerVersion, feesPath)
     }.toMap
 
     val proxyUseMap = api.getConfigList("paths").asScala.toList.map { path =>
@@ -222,18 +208,12 @@ object DaemonConfiguration extends Logging {
       val port = path.getInt("port")
       val url = new URL(s"$host:$port")
       // Use proxy if proxy is enabled globally and proxyuse is true or undefined
-      val proxyUse = Try(path.getBoolean("proxyuse")).getOrElse(true) && proxy.isDefined
+      val proxyUse = Try(path.getBoolean("proxyuse")).getOrElse(true)
       NetUtils.urlToHost(url) -> proxyUse
     }.toMap
 
-    val fees = api.getConfigList("fees").asScala.toList.map { fee =>
-      val currency = fee.getString("currency")
-      val path = fee.getString("path")
-      currency -> FeesPath(path)
-    }.toMap
-
     ExplorerConfig(
-      ApiConfig(fallbackTimeout, paths, proxyUseMap, fees),
+      ApiConfig(fallbackTimeout, explorerInfos, proxyUseMap),
       ClientConnectionConfig(connectionPoolSize, retryBackoffDelta, connectionPoolTtl, retryTtl, retryMin, retryPercent))
   }
 
@@ -262,9 +242,20 @@ object DaemonConfiguration extends Logging {
 
   val rabbitMQUri: Try[String] = Try(config.getString("rabbitmq.uri"))
 
-  case class ApiConfig(fallbackTimeout: Int, paths: Map[String, PathConfig], proxyUse: Map[Host, Boolean], fees: Map[String, FeesPath])
+  val IS_DD_ENABLED: Boolean = config.getString("datadog.agent_host") match {
+    case "" => false
+    case _ => true
+  }
 
-  case class PathConfig(host: String, port: Int, disableSyncToken: Boolean, fallback: Option[String], explorerVersion: Option[String])
+  val DD_HOST: String = config.getString("datadog.agent_host")
+  val DD_PORT: String = config.getString("datadog.agent_port")
+
+  val DD_TRACE_PREFIX: String = config.getString("datadog.ddtrace_prefix")
+  val DD_TRACE_PORT: Int = config.getInt("datadog.ddtrace_port")
+
+  case class ApiConfig(fallbackTimeout: Int, paths: Map[String, PathConfig], proxyUse: Map[Host, Boolean])
+
+  case class PathConfig(host: String, port: Int, disableSyncToken: Boolean, fallback: Option[String], explorerVersion: Option[String], feesPath: Option[FeesPath])
 
   case class ClientConnectionConfig(connectionPoolSize: Int, // Maximum concurrent connection inside a connection pool
                                     retryBackoff: Int, // In millis
@@ -280,4 +271,7 @@ object DaemonConfiguration extends Logging {
   case class FeesPath(path: String)
 
   case class SynchronizationConfig(delay: Int, frequency: Int)
+
+  case class CoreDbConfig(dbHost: String, dbPort: String, dbUserName: String, dbPwd: String, dbPrefix: String, cnxPoolSize: Int)
+
 }

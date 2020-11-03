@@ -131,10 +131,10 @@ class WalletsApiTest extends APIFeatureTest {
   private val WALLET_POOL = "wallet_pool"
 
   private def assertGetWallet(poolName: String, walletName: String, expected: Status): Response = {
-    server.httpGet(path = s"/pools/$poolName/wallets/$walletName", headers = defaultHeaders, andExpect = expected)
+    server.httpGet(path = s"/pools/$poolName/wallets/$walletName", andExpect = expected)
   }
 
   private def assertGetWallets(poolName: String, offset: Int, count: Int, expected: Status): Response = {
-    server.httpGet(path = s"/pools/$poolName/wallets?offset=$offset&count=$count", headers = defaultHeaders, andExpect = expected)
+    server.httpGet(path = s"/pools/$poolName/wallets?offset=$offset&count=$count", andExpect = expected)
   }
 }

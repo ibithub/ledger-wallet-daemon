@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.controllers
 
 import co.ledger.core.{BitcoinLikePickingStrategy, RippleLikeMemo, TezosOperationTag}
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser}
+import co.ledger.wallet.daemon.controllers.requests.CommonMethodValidations
 import co.ledger.wallet.daemon.models.coins.StellarMemo
 import co.ledger.wallet.daemon.models.{AccountInfo, FeeMethod}
 import co.ledger.wallet.daemon.services.TransactionsService
@@ -69,8 +69,8 @@ object TransactionsController {
   case class AccountInfoRequest(@RouteParam pool_name: String,
                                 @RouteParam wallet_name: String,
                                 @RouteParam account_index: Int,
-                                request: Request) extends RequestWithUser {
-    def accountInfo: AccountInfo = AccountInfo(account_index, wallet_name, pool_name, user.pubKey)
+                                request: Request) {
+    def accountInfo: AccountInfo = AccountInfo(account_index, wallet_name, pool_name)
   }
 
   case class BroadcastBTCTransactionRequest(raw_transaction: String,

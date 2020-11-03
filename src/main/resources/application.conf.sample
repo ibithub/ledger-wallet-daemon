@@ -1,13 +1,9 @@
-database_engine = "sqlite3"
+# Database engine to use for Wallet-Daemon (users and pools)
+database_engine = "postgres"
 database_engine = ${?WALLET_DAEMON_DATABASE_ENGINE}
-core_database_engine = "sqlite3"
-core_database_engine = ${?CORE_DATABASE_ENGINE}
 
-core = {
-  ops_threads_factor = 4
-  ops_threads_factor = ${?CORE_OPS_THREADS_FACTOR}
-}
 
+# Configuration used when sqlite3 is used as wallet daemon db engine
 sqlite3 = {
   url = "jdbc:sqlite:database.db"
   url = ${?WALLET_JDBC_URL}
@@ -15,26 +11,66 @@ sqlite3 = {
   connectionPool = disabled
 }
 
+core = {
+  # Per pool resource allocations
+  # It will allocate ops_threads_factor * number of available CPUs per walletpool
+  ops_threads_factor = 4
+  ops_threads_factor = ${?CORE_OPS_THREADS_FACTOR}
+
+  # core_data_path is root directory for core data stored on local disk (when using sqlite3 or levelDB)
+  core_data_path = "core_data"
+
+  # Database engine to use for Libcore (wallets, accounts, blocks, operations...)
+  core_database_engine = "postgres"
+  core_database_engine = ${?CORE_DATABASE_ENGINE}
+}
+
+# Default postgres configuration
+# Please note there is 2 kind of databases : the Wallet Daemon one (wallet_daemon.db_name) and libcore ones (one per pool (`postgres.core.db_name_prefix``poolName`)
 postgres = {
+    # Host and port for postgres server
     host = "localhost"
     host = ${?CORE_PG_HOST}
     port = "5432"
     port = ${?CORE_PG_PORT}
+
+    # User db credentials
     username = "postgres"
     username = ${?CORE_PG_USER}
     password = ""
     password = ${?CORE_PG_PWD}
-    db_name = "wallet_daemon"
-    db_name = ${?WALLET_DAEMON_DB_NAME}
-    db_name_prefix = ""
-    db_name_prefix = ${?CORE_PG_DB_NAME_PREFIX}
-    pool_size = 10
-    pool_size = ${?CORE_PG_CONNECTION_POOL_SIZE_PER_WALLET_POOL}
 
-    url = "jdbc:postgresql://"${postgres.host}":"${postgres.port}"/"${postgres.db_name}"?user="${postgres.username}"&password="${postgres.password}
+    core = {
+        # Prefix for pool dedicated database (core db)
+        # for pool named 'clientA' with 'wd_' as prefix, it expect a database named 'wd_clientA'
+        db_name_prefix = "wd_"
+        db_name_prefix = ${?CORE_PG_DB_NAME_PREFIX}
+
+        # pool_size is the number of connections held by a pool instance.
+        # ie : if we have 10 pools and connection pool size = 10
+        # the PG instance should be able to handle up to 100 connexions at a time
+        pool_size = 10
+        pool_size = ${?CORE_PG_CONNECTION_POOL_SIZE_PER_WALLET_POOL}
+    }
+    wallet_daemon = {
+        # Wallet Daemon database name
+        db_name = "wallet_daemon"
+        db_name = ${?WALLET_DAEMON_DB_NAME}
+    }
+    # If this variable is overridden, db_name, hosts and user credential will be ignored
+    url = "jdbc:postgresql://"${postgres.host}":"${postgres.port}"/"${postgres.wallet_daemon.db_name}"?user="${postgres.username}"&password="${postgres.password}
     url = ${?WALLET_JDBC_URL}
+    maxConnections = 3
+    minConnections = 0
+    numThreads = 3
 }
 
+# rabbitMQ uri in the format of 'amqp://user:pass@host:port'
+rabbitmq.uri = ${RABBITMQ_URI}
+
+# Proxy configuration, disabled by default
+# Each explorer config can specify if we are using or not proxy for access
+# This can be useful when using Regtest or other local explorer.
 proxy = {
   enabled = false
   enabled = ${?WALLET_PROXY_ENABLED}
@@ -44,76 +80,7 @@ proxy = {
   port = ${?WALLET_PROXY_PORT}
 }
 
-h2mem1 = {
-  url = "jdbc:h2:mem:test;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1"
-  connectionPool = disabled
-  keepAliveConnection = true
-  driver="org.h2.Driver"
-  username="sql"
-  password=""
-}
 
-realtimeobservation = true
-
-# Configuration for Account Synchronizer Manager (ASM)
-synchronization = {
-
-  # check every n seconds to register new account to ASM. default 600
-  sync_account_register_interval_in_seconds = ${?SYNC_ACCOUNT_REGISTER_INTERVAL_IN_SECONDS}
-
-  # check every n seconds to update sync status. default 3
-  sync_status_check_interval_in_seconds = ${?SYNC_STATUS_CHECK_INTERVAL_IN_SECONDS}
-
-  # resync request are queued. check the queue every n seconds to launch
-  # account resync. default 3
-  resync_check_interval_in_seconds = ${?RESYNC_CHECK_INTERVAL_IN_SECONDS}
-}
-
-demo_users = [
-  {
-    username = "admin"
-    password = "password"
-  }
-]
-
-whitelist = [
-  {
-    key = "03B4A94D8E33308DD08A3A8C937822101E229D85A2C0DFABC236A8C6A82E58076D"
-    account_creation = true
-  },
-  {
-   key = "03F9AD53644DE7C4AFE79A8B653D79643E5FADE621242A7DEFDFCE4745811C0808"
-   account_creation = true
-  },
-  {
-    key = "02ec8147a3b0c72e08aea561ffcf5c3294df0cd34643487deccfc5f5b0d883ed27"
-    account_creation = true
-  },
-  {
-    key = "0335c9f08725f44295f0d50afc29c6cdefdbf0fc831a3c377cac0d000a4836a971"
-    account_creation = true
-  },
-  {
-    key = "03720bab6919be32742bcac3353e3eb8a5acc2b49c06be77f4d63bd0772ad11f98"
-    account_creation = true
-  }
-]
-
-disable_whitelist = true
-
-core_data_path = "core_data"
-
-update_wallet_config = true
-update_wallet_config = ${?WALLET_UPDATE_WALLET_CONFIG}
-
-caching = {
-    balance = {
-        ttl_minute = 1
-        ttl_minute = ${?BALANCE_CACHE_TTL_MIN}
-        max_size = 1000
-        max_size = ${?BALANCE_MAX_SIZE}
-    }
-}
 explorer = {
   api = {
     connection_pool_size = 5
@@ -122,42 +89,46 @@ explorer = {
     paths = [
       {
         currency = default
-        host = "https://api.ledgerwallet.com"
+        host = "https://explorers.api.vault.ledger.com"
         port = 443
         proxyuse = true
         proxyuse = ${?WALLET_DEFAULT_EXPLORER_PROXYUSE}
-        disable_sync_token = false
+        disable_sync_token = true
         disable_sync_token = ${?DEFAULT_DISABLE_SYNC_TOKEN}
       }
       {
         currency = bitcoin
-        host = "https://api.ledgerwallet.com"
+        host = "https://explorers.api.vault.ledger.com"
         host = ${?WALLET_BTC_EXPLORER_ENDPOINT}
         port = 443
         port = ${?WALLET_BTC_EXPLORER_PORT}
-        explorer_version = "v2"
+        explorer_version = "v3"
         explorer_version = ${?WALLET_BTC_EXPLORER_VERSION}
         proxyuse = true
         proxyuse = ${?WALLET_BTC_EXPLORER_PROXYUSE}
-        disable_sync_token = false
+        disable_sync_token = true
         disable_sync_token = ${?BTC_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/btc/fees"
+        fees_path = ${?FEES_BTC_PATH}
       }
       {
         currency = bitcoin_testnet
-        host = "https://explorers.api.live.ledger.com"
+        host = "https://explorers.api.vault.ledger.com"
         host = ${?WALLET_BTC_TESTNET_EXPLORER_ENDPOINT}
         port = 443
         port = ${?WALLET_BTC_TESTNET_EXPLORER_PORT}
-        explorer_version = "v2"
+        explorer_version = "v3"
         explorer_version = ${?WALLET_BTC_TESTNET_EXPLORER_VERSION}
         proxyuse = true
         proxyuse = ${?WALLET_BTC_TESTNET_EXPLORER_PROXYUSE}
-        disable_sync_token = false
+        disable_sync_token = true
         disable_sync_token = ${?BTC_TESTNET_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/btc_testnet/fees"
+        fees_path = ${?FEES_BTC_TESTNET_PATH}
       }
       {
         currency = ethereum
-        host = "https://explorers.api.live.ledger.com"
+        host = "https://explorers.api.vault.ledger.com"
         host = ${?WALLET_ETH_EXPLORER_ENDPOINT}
         port = 443
         port = ${?WALLET_ETH_EXPLORER_PORT}
@@ -167,12 +138,14 @@ explorer = {
         proxyuse = ${?WALLET_ETH_EXPLORER_PROXYUSE}
         fallback = "https://mainnet.infura.io/v3/c0c3514370b2454d9e58a001876167af"
         fallback = ${?WALLET_ETH_EXPLORER_FALLBACK}
-        disable_sync_token = false
+        disable_sync_token = true
         disable_sync_token = ${?ETH_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/eth/fees"
+        fees_path = ${?FEES_ETH_PATH}
       }
       {
         currency = ethereum_classic
-        host = "https://explorers.api.live.ledger.com"
+        host = "https://explorers.api.vault.ledger.com"
         host = ${?WALLET_ETC_EXPLORER_ENDPOINT}
         port = 443
         port = ${?WALLET_ETC_EXPLORER_PORT}
@@ -180,12 +153,14 @@ explorer = {
         explorer_version = ${?WALLET_ETC_EXPLORER_VERSION}
         proxyuse = true
         proxyuse = ${?WALLET_ETC_EXPLORER_PROXYUSE}
-        disable_sync_token = false
+        disable_sync_token = true
         disable_sync_token = ${?ETC_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/etc/fees"
+        fees_path = ${?FEES_ETC_PATH}
       }
       {
         currency = ethereum_ropsten
-        host = "https://explorers.api.live.ledger.com"
+        host = "https://explorers.api.vault.ledger.com"
         host = ${?WALLET_ETH_ROPSTEN_EXPLORER_ENDPOINT}
         port = 443
         port = ${?WALLET_ETH_ROPSTEN_EXPLORER_PORT}
@@ -195,8 +170,40 @@ explorer = {
         proxyuse = ${?WALLET_ETH_ROPSTEN_EXPLORER_PROXYUSE}
         fallback = "https://ropsten.infura.io/v3/c0c3514370b2454d9e58a001876167af"
         fallback = ${?WALLET_ETH_ROPSTEN_EXPLORER_FALLBACK}
-        disable_sync_token = false
+        disable_sync_token = true
         disable_sync_token = ${?ETH_ROPSTEN_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/eth_ropsten/fees"
+        fees_path = ${?FEES_ETH_ROPSTEN_PATH}
+      }
+      {
+        currency = dogecoin
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_DOGE_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_DOGE_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_DOGE_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_DOGE_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?DOGE_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/doge/fees"
+        fees_path = ${?FEES_DOGE_PATH}
+      }
+      {
+        currency = litecoin
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_LTC_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_LTC_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_LTC_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_LTC_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?LTC_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/ltc/fees"
+        fees_path = ${?FEES_LTC_PATH}
       }
       {
         currency = ripple
@@ -206,7 +213,7 @@ explorer = {
         port = ${?WALLET_XRP_EXPLORER_PORT}
         proxyuse = true
         proxyuse = ${?WALLET_XRP_EXPLORER_PROXYUSE}
-        disable_sync_token = false
+        disable_sync_token = true
         disable_sync_token = ${?XRP_DISABLE_SYNC_TOKEN}
       }
       {
@@ -215,7 +222,7 @@ explorer = {
         host = ${?WALLET_XLM_EXPLORER_ENDPOINT}
         port = 443
         port = ${?WALLET_XLM_EXPLORER_PORT}
-        disable_sync_token = false
+        disable_sync_token = true
         disable_sync_token = ${?XLM_DISABLE_SYNC_TOKEN}
       }
       {
@@ -228,112 +235,206 @@ explorer = {
         disable_sync_token = false
         disable_sync_token = ${?XTZ_DISABLE_SYNC_TOKEN}
       }
-    ]
-    fees = [
-    {
-        currency = "bitcoin"
-        path = "/blockchain/v2/btc/fees"
-        path = ${?FEES_BTC_PATH}
-    }
-    {
-        currency = "bitcoin_testnet"
-        path = "/blockchain/v2/btc_testnet/fees"
-        path = ${?FEES_BTC_TESTNET_PATH}
-    }
-    {
-        currency = "dogecoin"
-        path = "/blockchain/v2/doge/fees"
-        path = ${?FEES_DOGE_PATH}
-    }
-    {
-        currency = "litecoin"
-        path = "/blockchain/v2/ltc/fees"
-        path = ${?FEES_LTC_PATH}
-    }
-    {
-        currency = "dash"
-        path = "/blockchain/v2/dash/fees"
-        path = ${?FEES_DASH_PATH}
-    }
-    {
-        currency = "komodo"
-        path = "/blockchain/v2/kmd/fees"
-        path = ${?FEES_KMD_PATH}
-    }
-    {
-        currency = "pivx"
-        path = "/blockchain/v2/pivx/fees"
-        path = ${?FEES_PIVX_PATH}
-    }
-    {
-        currency = "viacoin"
-        path = "/blockchain/v2/via/fees"
-        path = ${?FEES_VIA_PATH}
-    }
-    {
-        currency = "vertcoin"
-        path = "/blockchain/v2/vtc/fees"
-        path = ${?FEES_VTC_PATH}
-    }
-    {
-        currency = "digibyte"
-        path = "/blockchain/v2/dgb/fees"
-        path = ${?FEES_DGB_PATH}
-    }
-    {
-        currency = "bitcoin_cash"
-        path = "/blockchain/v2/abc/fees"
-        path = ${?FEES_ABC_PATH}
-    }
-    {
-        currency = "poswallet"
-        path = "/blockchain/v2/posw/fees"
-        path = ${?FEES_POSW_PATH}
-    }
-    {
-        currency = "stratis"
-        path = "/blockchain/v2/strat/fees"
-        path = ${?FEES_STRAT_PATH}
-    }
-    {
-        currency = "peercoin"
-        path = "/blockchain/v2/ppc/fees"
-        path = ${?FEES_PPC_PATH}
-    }
-    {
-        currency = "bitcoin_gold"
-        path = "/blockchain/v2/btg/fees"
-        path = ${?FEES_BTG_PATH}
-    }
-    {
-        currency = "zcash"
-        path = "/blockchain/v2/zec/fees"
-        path = ${?FEES_ZEC_PATH}
-    }
-    {
-        currency = "qtum"
-        path = "/blockchain/v2/qtum/fees"
-        path = ${?FEES_QTUM_PATH}
-    }
-    {
-        currency = "ethereum"
-        path = "/blockchain/v3/eth/fees"
-        path = ${?FEES_ETH_PATH}
-    }
-    {
-        currency = "ethereum_classic"
-        path = "/blockchain/v3/etc/fees"
-        path = ${?FEES_ETC_PATH}
-    }
-    {
-        currency = "ethereum_ropsten"
-        path = "/blockchain/v3/eth_ropsten/fees"
-        path = ${?FEES_ETH_ROPSTEN_PATH}
-    }
+	  {
+        currency = dash
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_DASH_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_DASH_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_DASH_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_DASH_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?DASH_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/dash/fees"
+        fees_path = ${?FEES_DASH_PATH}
+      }
+      {
+        currency = komodo
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_KOMODO_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_KOMODO_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_KOMODO_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_KOMODO_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?KOMODO_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/kmd/fees"
+        fees_path = ${?FEES_KOMODO_PATH}
+      }
+      {
+        currency = pivx
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_PIVX_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_PIVX_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_PIVX_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_PIVX_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?PIVX_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/pivx/fees"
+        fees_path = ${?FEES_PIVX_PATH}
+      }
+      {
+        currency = viacoin
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_VIA_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_VIA_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_VIA_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_VIA_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?VIA_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/via/fees"
+        fees_path = ${?FEES_VIA_PATH}
+      }
+      {
+        currency = vertcoin
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_VTC_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_VTC_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_VTC_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_VTC_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?VTC_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/vtc/fees"
+        fees_path = ${?FEES_VTC_PATH}
+      }
+      {
+        currency = digibyte
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_DGB_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_DGB_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_DGB_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_DGB_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?DGB_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/dgb/fees"
+        fees_path = ${?FEES_DGB_PATH}
+      }
+      {
+        currency = bitcoin_cash
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_ABC_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_ABC_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_ABC_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_ABC_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?ABC_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/abc/fees"
+        fees_path = ${?FEES_ABC_PATH}
+      }
+      {
+        currency = poswallet
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_POSW_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_POSW_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_POSW_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_POSW_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?POSW_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/posw/fees"
+        fees_path = ${?FEES_POSW_PATH}
+      }
+      {
+        currency = stratis
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_STRAT_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_STRAT_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_STRAT_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_STRAT_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?STRAT_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/strat/fees"
+        fees_path = ${?FEES_STRAT_PATH}
+      }
+      {
+        currency = peercoin
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_PPC_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_PPC_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_PPC_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_PPC_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?PPC_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/ppc/fees"
+        fees_path = ${?FEES_PPC_PATH}
+      }
+      {
+        currency = bitcoin_gold
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_BTG_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_BTG_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_BTG_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_BTG_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?BTG_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/btg/fees"
+        fees_path = ${?FEES_BTG_PATH}
+      }
+      {
+        currency = zcash
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_ZEC_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_ZEC_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_ZEC_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_ZEC_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?ZEC_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/zec/fees"
+        fees_path = ${?FEES_ZEC_PATH}
+      }
+      {
+        currency = qtum
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_QTUM_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_QTUM_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_QTUM_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_QTUM_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?QTUM_DISABLE_SYNC_TOKEN}
+        fees_path = "/blockchain/v3/qtum/fees"
+        fees_path = ${?FEES_QTUM_PATH}
+      }
     ]
   }
 }
 
+# ETH fees specific
 ethereum = {
   feesfactor = {
       slow = 0.75
@@ -356,7 +457,121 @@ node = {
 }
 }
 
+# currencies compatible with native segwit
 native_segwit_currencies = ["bitcoin", "bitcoin_testnet", "litecoin", "qtum"]
+native_segwit_currencies = ${?NATIVE_SEGWIT_CURRENCIES}
 
-# rabbitMQ uri in the format of 'amqp://user:pass@host:port'
-rabbitmq.uri = ${RABBITMQ_URI}
+# Default user for tests
+default_users = [
+  {
+    username = "admin"
+    password = "password"
+  }
+]
+
+# Caching policies
+caching = {
+    balance = {
+        ttl_minute = 1
+        ttl_minute = ${?BALANCE_CACHE_TTL_MIN}
+        max_size = 1000
+        max_size = ${?BALANCE_MAX_SIZE}
+    }
+}
+
+# Configuration for Account Synchronizer Manager (ASM)
+synchronization = {
+  # check every n seconds to register new account to ASM
+  sync_account_register_interval_in_seconds = 3
+  sync_account_register_interval_in_seconds = ${?SYNC_ACCOUNT_REGISTER_INTERVAL_IN_SECONDS}
+
+  # delay between two synchronization
+  sync_interval_in_seconds = 60
+  sync_interval_in_seconds = ${?SYNC_INTERVAL_IN_SECONDS}
+}
+
+# AKKA specifics
+akka {
+    wd-blocking-dispatcher {
+      type = Dispatcher
+      executor = "thread-pool-executor"
+      thread-pool-executor {
+        fixed-pool-size = 16
+      }
+      throughput = 1
+    }
+    loggers = ["akka.event.slf4j.Slf4jLogger"]
+    loglevel = "DEBUG"
+    logging-filter = "akka.event.slf4j.Slf4jLoggingFilter"
+    actor.debug.receive = on
+}
+
+
+synchronization {
+    synchronizer {
+        dispatcher {
+          type = Dispatcher
+           executor = "fork-join-executor"
+            # Configuration for the fork join pool
+            fork-join-executor {
+              # Min number of threads to cap factor-based parallelism number to
+              parallelism-min = 2
+              # Parallelism (threads) ... ceil(available processors * factor)
+              parallelism-factor = 2.0
+              # Max number of threads to cap factor-based parallelism number to
+              parallelism-max = 10
+            }
+            # Throughput defines the maximum number of messages to be
+            # processed per actor before the thread jumps to the next actor.
+            # Set to 1 for as fair as possible.
+            throughput = 5
+        }
+    }
+
+    publisher {
+       dispatcher {
+               type = Dispatcher
+                executor = "fork-join-executor"
+                 # Configuration for the fork join pool
+                 fork-join-executor {
+                   # Min number of threads to cap factor-based parallelism number to
+                   parallelism-min = 2
+                   # Parallelism (threads) ... ceil(available processors * factor)
+                   parallelism-factor = 2.0
+                   # Max number of threads to cap factor-based parallelism number to
+                   parallelism-max = 10
+                 }
+                 # Throughput defines the maximum number of messages to be
+                 # processed per actor before the thread jumps to the next actor.
+                 # Set to 1 for as fair as possible.
+                 throughput = 5
+       }
+    }
+
+    libcore-lookup  {
+      dispatcher {
+      type = Dispatcher
+                    executor = "thread-pool-executor"
+                    thread-pool-executor {
+                      fixed-pool-size = 16
+                    }
+                    throughput = 1
+      }
+    }
+}
+
+datadog {
+  agent_host = ""
+  agent_host = ${?DD_AGENT_HOST}
+  agent_port = 8126
+  agent_port = ${?DD_AGENT_PORT}
+  ddtrace_prefix = "statsd"
+  ddtrace_port = 8125
+  ddtrace_port = ${?DD_TRACE_PORT}
+  logs_injection = true
+  logs_injection = ${?DD_LOGS_INJECTION}
+  profiling_enabled = true
+  profiling_enabled = ${?DD_PROFILING_ENABLED}
+  jms_fetch_enabled = true
+  jms_fetch_enabled = ${?DD_JMXFETCH_ENABLED}
+}

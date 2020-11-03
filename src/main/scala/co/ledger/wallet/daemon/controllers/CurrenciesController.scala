@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.controllers
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser, WithPoolInfo}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, WalletDaemonRequest, WithPoolInfo}
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.filters.DeprecatedRouteFilter
 import co.ledger.wallet.daemon.services.CurrenciesService
@@ -55,12 +55,12 @@ object CurrenciesController {
   case class AddressValidatingRequest(@RouteParam pool_name: String,
                                       @RouteParam currency_name: String,
                                       @QueryParam address: String,
-                                      request: Request) extends RequestWithUser with WithPoolInfo
+                                      request: Request) extends WalletDaemonRequest with WithPoolInfo
 
   case class GetCurrenciesRequest(
                                    @RouteParam pool_name: String,
                                    request: Request
-                                 ) extends RequestWithUser with WithPoolInfo {
+                                 ) extends WalletDaemonRequest with WithPoolInfo {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
   }
@@ -69,7 +69,7 @@ object CurrenciesController {
                                  @RouteParam currency_name: String,
                                  @RouteParam pool_name: String,
                                  request: Request
-                               ) extends RequestWithUser with WithPoolInfo {
+                               ) extends WalletDaemonRequest with WithPoolInfo {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
   }

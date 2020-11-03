@@ -3,8 +3,7 @@ package co.ledger.wallet.daemon.database
 import java.util.UUID
 
 import co.ledger.core.{Account, Currency, Wallet}
-import co.ledger.wallet.daemon.database.DefaultDaemonCache.User
-import co.ledger.wallet.daemon.exceptions.{AccountNotFoundException, UserNotFoundException, WalletNotFoundException, WalletPoolNotFoundException}
+import co.ledger.wallet.daemon.exceptions.{AccountNotFoundException, WalletNotFoundException, WalletPoolNotFoundException}
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Operations.PackedOperationsView
 import co.ledger.wallet.daemon.models.Wallet._
@@ -54,14 +53,12 @@ trait DaemonCache {
   def getPreviousBatchAccountOperations(previous: UUID,
                                         fullOp: Int, accountInfo: AccountInfo): Future[PackedOperationsView]
 
-  // ************** currency ************
   def getCurrency(currencyName: String, poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Option[Currency]] =
     withWalletPool(poolInfo)(_.currency(currencyName))
 
   def getCurrencies(poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Seq[Currency]] =
     withWalletPool(poolInfo)(_.currencies())
 
-  // ************** wallet *************
   def createWallet(currencyName: String, walletInfo: WalletInfo, isNativeSegwit: Boolean)(implicit ec: ExecutionContext): Future[Wallet] = {
     withWalletPool(walletInfo.poolInfo)(_.addWalletIfNotExist(walletInfo.walletName, currencyName, isNativeSegwit))
   }
@@ -86,12 +83,18 @@ trait DaemonCache {
   def withWalletAndPool[T](walletInfo: WalletInfo)(f: (Wallet, Pool) => Future[T])(implicit ec: ExecutionContext): Future[T] =
     withWalletPool(walletInfo.poolInfo)(p => withWallet(walletInfo.walletName, p)(w => f(w, p)))
 
-  // ************** wallet pool *************
-  def createWalletPool(poolInfo: PoolInfo, configuration: String)(implicit ec: ExecutionContext): Future[Pool] =
-    withUser(poolInfo.pubKey)(_.addPoolIfNotExit(poolInfo.poolName, configuration))
+  def createWalletPool(poolInfo: PoolInfo, configuration: String): Future[Pool]
 
   def getWalletPool(poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Option[Pool]] =
-    withUser(poolInfo.pubKey)(_.pool(poolInfo.poolName))
+    findPoolByName(poolInfo.poolName).map {
+      case Some(dto) => Pool.newPoolInstance(dto)
+      case None => Option.empty[Pool]
+    }
+
+  def getAllPools(implicit ec: ExecutionContext): Future[Seq[Pool]] =
+    for {
+      allPoolDto <- getAllPoolDtos
+    } yield allPoolDto.flatMap(poolDto => Pool.newPoolInstance(poolDto))
 
 
   def withWalletPool[T](poolInfo: PoolInfo)(f: Pool => Future[T])(implicit ec: ExecutionContext): Future[T] = {
@@ -101,23 +104,13 @@ trait DaemonCache {
     }
   }
 
-  def getWalletPools(pubKey: String)(implicit ec: ExecutionContext): Future[Seq[Pool]] =
-    withUser(pubKey)(_.pools())
+  def deleteWalletPool(poolInfo: PoolInfo): Future[Unit] =
+    deletePool(poolInfo.poolName)
 
-  def deleteWalletPool(poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Unit] =
-    withUser(poolInfo.pubKey)(_.deletePool(poolInfo.poolName))
+  def getAllPoolDtos: Future[Seq[PoolDto]]
 
+  def findPoolByName(name: String): Future[Option[PoolDto]]
 
-  // **************** user ***************
-  def withUser[T](pubKey: String)(f: User => Future[T])(implicit ec: ExecutionContext): Future[T] =
-    getUser(pubKey).flatMap {
-      case Some(user) => f(user)
-      case None => Future.failed(UserNotFoundException(pubKey))
-    }
+  def deletePool(poolName: String): Future[Unit]
 
-  def createUser(pubKey: String, permissions: Int): Future[User]
-
-  def getUsers: Future[Seq[User]]
-
-  def getUser(pubKey: String): Future[Option[User]]
 }

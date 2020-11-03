@@ -7,6 +7,8 @@ pwd=$4
 prefix=$5
 drop_mode=$6
 
+export PGPASSWORD=$pwd
+
 command=createdb
 if [ -n "$drop_mode" ]; then
 echo "!!!!!!!!!!!!!!!!!!!!!"
@@ -18,17 +20,17 @@ fi
 echo "==> PostgreSQL server infos: host " $host ", port " $port
 
 echo "     * Creating database : wallet_daemon"
-$command -h $host -p $port wallet_daemon -w -U $user
+$command -h $host -p $port wallet_daemon -U $user
 echo "     |--> wallet_daemon Done"
 
 # Databases used in IT tests
-tests=(account_test transactionsExcludeUTXOTest transactionsPartialTest currency_pool test_pool test_pool1 op_pool op_pool_mal info_pool exist_pool fresh_addresses_pool list_pool account_pool delete_pool delete_account balance_pool pool_1 pool_2 pool_3 random_pool multi_pool_mal transactionsCreation4Test ledger anotha_pool same_pool this_pool my_pool your_pool wallet_pool duplicate_pool empty_pool multi_pool random POOL_NAME myPool test_wallet getUtxo_pool tez_test_pool)
+tests=(walletpooldao databasedaotest account_test preferenceBackendTest transactionsExcludeUTXOTest transactionsPartialTest currency_pool test_pool test_pool1 op_pool op_pool_mal info_pool exist_pool fresh_addresses_pool list_pool account_pool delete_pool delete_account balance_pool pool_1 pool_2 pool_3 random_pool multi_pool_mal transactionsCreation4Test ledger anotha_pool same_pool this_pool my_pool your_pool wallet_pool duplicate_pool empty_pool multi_pool random POOL_NAME myPool test_wallet getUtxo_pool tez_test_pool)
 
 # Create all DBs with names above
 for elem in "${tests[@]}"
 do
     echo "     * Creating database : $prefix$elem"
-    $command -h $host -p $port $prefix$elem -w -U $user
+    $command -h $host -p $port $prefix$elem -U $user
     echo "     |--> $prefix$elem Done"
 
 done

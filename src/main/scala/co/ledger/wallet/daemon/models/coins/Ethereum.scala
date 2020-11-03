@@ -31,8 +31,8 @@ object EthereumNetworkParamView {
 case class EthereumTransactionView(
                                     @JsonProperty("block") block: Option[CommonBlockView],
                                     @JsonProperty("hash") hash: String,
-                                    @JsonProperty("receiver") receiver: String,
-                                    @JsonProperty("sender") sender: String,
+                                    @JsonProperty("receiver") receiver: String, // tjs le contrat dans un erc20
+                                    @JsonProperty("sender") sender: String, // meme sender
                                     @JsonProperty("value") value: String,
                                     @JsonProperty("erc20") erc20: Option[EthereumTransactionView.ERC20],
                                     @JsonProperty("gas_price") gasPrice: String,
@@ -53,7 +53,7 @@ object EthereumTransactionView {
       tx.getGasPrice.toString,
       tx.getGasLimit.toString,
       tx.getDate,
-      tx.getStatus()
+      tx.getStatus
     )
   }
 

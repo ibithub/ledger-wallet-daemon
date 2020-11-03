@@ -3,7 +3,7 @@ package co.ledger.wallet.daemon.models
 import java.util.{Date, UUID}
 
 import co.ledger.core
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.exceptions.InvalidCurrencyForErc20Operation
 import co.ledger.wallet.daemon.models.Wallet.RichCoreWallet
 import co.ledger.wallet.daemon.models.coins.Coin.TransactionView
@@ -25,13 +25,15 @@ object Operations {
   }
 
   def getErc20View(erc20Operation: core.ERC20LikeOperation, operation: core.Operation, wallet: core.Wallet, account: core.Account): Future[OperationView] = {
-    getView(operation, wallet, account).map {view =>
-      val tvOpt = view.transaction.map {
-          case e: EthereumTransactionView => e.copy(erc20 = Some(ERC20.from(erc20Operation)))
-          case _ => throw InvalidCurrencyForErc20Operation()
-      }
-      view.copy(opType = erc20Operation.getOperationType, transaction = tvOpt)
+    getViewAndDestroy(operation, wallet, account).map { view => getErc20View(erc20Operation, view) }
+  }
+
+  def getErc20View(erc20Operation: core.ERC20LikeOperation, operation: OperationView): OperationView = {
+    val tvOpt = operation.transaction.map {
+      case e: EthereumTransactionView => e.copy(erc20 = Some(ERC20.from(erc20Operation)))
+      case _ => throw InvalidCurrencyForErc20Operation()
     }
+    operation.copy(opType = erc20Operation.getOperationType, transaction = tvOpt)
   }
 
   def getView(operation: core.Operation, wallet: core.Wallet, account: core.Account): Future[OperationView] = {
@@ -57,6 +59,13 @@ object Operations {
       operation.getSelfRecipients.asScala.toList,
       getTransactionView(operation, curFamily)
     )
+  }
+
+  def getViewAndDestroy(operation: core.Operation, wallet: core.Wallet, account: core.Account): Future[OperationView] = {
+    getView(operation, wallet, account).map(op => {
+      operation.destroy()
+      op
+    })
   }
 
   def getTrustIndicatorView(indicator: core.TrustIndicator): TrustIndicatorView = {
@@ -113,4 +122,5 @@ object Operations {
                                    @JsonProperty("next") next: Option[UUID],
                                    @JsonProperty("operations") operations: Seq[OperationView]
                                  )
+
 }

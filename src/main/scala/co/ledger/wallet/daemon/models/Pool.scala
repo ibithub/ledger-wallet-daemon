@@ -1,32 +1,36 @@
 package co.ledger.wallet.daemon.models
 
 import java.net.URL
-import java.time.{LocalDateTime, ZoneId}
+import java.time.LocalDateTime
 
 import co.ledger.core
 import co.ledger.core.implicits._
-import co.ledger.core.{ConfigurationDefaults, ErrorCode, ErrorCodeCallback}
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.core.{ConfigurationDefaults, ErrorCode}
 import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
-import co.ledger.wallet.daemon.database.PoolDto
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
+import co.ledger.wallet.daemon.database.core.WalletPoolDao
+import co.ledger.wallet.daemon.database.{PoolDto, PostgresPreferenceBackend}
 import co.ledger.wallet.daemon.exceptions.{CoreDatabaseException, CurrencyNotFoundException, UnsupportedNativeSegwitException, WalletNotFoundException}
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.libledger_core.crypto.SecureRandomRNG
 import co.ledger.wallet.daemon.libledger_core.debug.NoOpLogPrinter
 import co.ledger.wallet.daemon.libledger_core.filesystem.ScalaPathResolver
-import co.ledger.wallet.daemon.models.Wallet._
-import co.ledger.wallet.daemon.schedulers.observers.SynchronizationResult
 import co.ledger.wallet.daemon.services.LogMsgMaker
 import co.ledger.wallet.daemon.utils.{HexUtils, Utils}
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.google.common.cache.{CacheLoader, LoadingCache}
 import com.twitter.inject.Logging
 import com.typesafe.config.ConfigFactory
 import org.bitcoinj.core.Sha256Hash
+import slick.jdbc.DriverDataSource
+import slick.jdbc.JdbcBackend.Database
+import slick.util.AsyncExecutor
 
 import scala.collection.JavaConverters._
 import scala.collection._
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}
 
 class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
@@ -37,6 +41,8 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
 
   val sessionStartDate: LocalDateTime = LocalDateTime.now()
   val name: String = coreP.getName
+  logger.info(s"New Core Pool instance - ${coreP.getName} - id $id")
+  val walletPoolDao: WalletPoolDao = WalletPoolDao(name)
 
   def view: Future[WalletPoolView] = coreP.getWalletCount().map { count => WalletPoolView(name, count) }
 
@@ -113,25 +119,6 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
     */
   def currencies(): Future[Seq[core.Currency]] = {
     coreP.getCurrencies().map(_.asScala.toList)
-  }
-
-  /**
-    * Destroys all wallets in this pool
-    *
-    * @return a future of an co.ledger.core.ErrorCode
-    */
-  def eraseAllFromSessionStart(): Future[ErrorCode] = {
-    val promise = Promise[ErrorCode]()
-    val date = java.util.Date.from(sessionStartDate.atZone(ZoneId.systemDefault()).toInstant)
-    coreP.eraseDataSince(date, new ErrorCodeCallback() {
-      override def onCallback(errorCode: ErrorCode, error: core.Error): Unit = {
-        errorCode match {
-          case ErrorCode.FUTURE_WAS_SUCCESSFULL => promise.success(errorCode)
-          case _ => promise.failure(new UnknownError(error.getMessage))
-        }
-      }
-    })
-    promise.future
   }
 
   def addWalletIfNotExist(walletName: String, currencyName: String, isNativeSegwit: Boolean): Future[core.Wallet] = {
@@ -213,19 +200,6 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
     }
   }
 
-  /**
-    * Synchronize all accounts within this pool.
-    *
-    * @return a future of sequence of synchronization results.
-    */
-  def sync(): Future[Seq[SynchronizationResult]] = {
-    for {
-      count <- coreP.getWalletCount()
-      wallets <- coreP.getWallets(0, count)
-      result <- Future.sequence(wallets.asScala.map { wallet => wallet.syncAccounts(name) }).map(_.flatten)
-    } yield result
-  }
-
   override def equals(that: Any): Boolean = {
     that match {
       case that: Pool => that.isInstanceOf[Pool] && self.hashCode == that.hashCode
@@ -296,15 +270,31 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
 }
 
 object Pool extends Logging {
+
   private val config = ConfigFactory.load()
 
-  def newInstance(coreP: core.WalletPool, id: Long): Pool = {
-    new Pool(coreP, id)
+  import com.google.common.cache.CacheBuilder
+
+  private case class CacheKey(id: Long, poolName: String)
+
+  private val poolInstances: LoadingCache[CacheKey, Pool] =
+    CacheBuilder.newBuilder()
+      .build[CacheKey, Pool](new CacheLoader[CacheKey, Pool] {
+        override def load(key: CacheKey): Pool = new Pool(Await.result(newCoreWalletPool(key.poolName), Duration.Inf), key.id)
+      })
+
+  def newPoolInstance(poolDto: PoolDto): Option[Pool] = {
+    poolDto.id.fold(
+      Option.empty[Pool]
+    )(id => Some(poolInstances.get(CacheKey(id, poolDto.name))))
   }
 
-  def newCoreInstance(poolDto: PoolDto): Future[core.WalletPool] = {
+
+  private def newCoreWalletPool(poolName: String): Future[core.WalletPool] = {
     val poolConfig = core.DynamicObject.newInstance()
-    val dbBackend = Try(config.getString("core_database_engine")).toOption.getOrElse("sqlite3") match {
+    val builder = core.WalletPoolBuilder.createInstance()
+
+    Try(config.getString("core.core_database_engine")).toOption.getOrElse("sqlite3") match {
       case "postgres" =>
         info("Using PostgreSql as core database engine")
         val dbName = for {
@@ -312,41 +302,49 @@ object Pool extends Logging {
           dbHost <- Try(config.getString("postgres.host"))
           dbUserName <- Try(config.getString("postgres.username"))
           dbPwd <- Try(config.getString("postgres.password"))
-          dbPrefix <- Try(config.getString("postgres.db_name_prefix"))
+          dbPrefix <- Try(config.getString("postgres.core.db_name_prefix"))
         } yield {
           // Ref: postgres://USERNAME:PASSWORD@HOST:PORT/DBNAME
           if (dbPwd.isEmpty) {
-            s"postgres://${dbUserName}@${dbHost}:${dbPort}/${dbPrefix}${poolDto.name}"
+            (s"postgres://${dbUserName}@${dbHost}:${dbPort}/${dbPrefix}${poolName}",
+              s"jdbc:postgresql://$dbHost:$dbPort/$dbPrefix${poolName}?user=$dbUserName")
           } else {
-            s"postgres://${dbUserName}:${dbPwd}@${dbHost}:${dbPort}/${dbPrefix}${poolDto.name}"
+            (s"postgres://${dbUserName}:${dbPwd}@${dbHost}:${dbPort}/${dbPrefix}${poolName}",
+              s"jdbc:postgresql://$dbHost:$dbPort/$dbPrefix${poolName}?user=$dbUserName&password=$dbPwd")
           }
         }
         dbName match {
-          case Success(value) =>
-            poolConfig.putString("DATABASE_NAME", value)
-            core.DatabaseBackend.getPostgreSQLBackend(config.getInt("postgres.pool_size"))
+          case Success((cppUrl, jdbcUrl)) =>
+            val cnx = config.getInt("postgres.core.pool_size")
+            info(s"Using PostgreSQL as core preference database $jdbcUrl with connexions : $cnx")
+            val preferenceBackend = new PostgresPreferenceBackend(
+              Database.forDataSource(new DriverDataSource(jdbcUrl), Some(cnx), AsyncExecutor("walletdaemon-pref-db", cnx, -1)))
+            preferenceBackend.init()
+            builder.setExternalPreferencesBackend(preferenceBackend)
+            builder.setInternalPreferencesBackend(preferenceBackend)
+            poolConfig.putString("DATABASE_NAME", cppUrl)
+            val backend = core.DatabaseBackend.getPostgreSQLBackend(cnx)
+            builder.setDatabaseBackend(backend)
           case Failure(exception) =>
             throw CoreDatabaseException("Failed to configure wallet daemon's core database", exception)
         }
       case _ =>
         info("Using Sqlite as core database engine")
-        core.DatabaseBackend.getSqlite3Backend
+        builder.setDatabaseBackend(core.DatabaseBackend.getSqlite3Backend)
     }
-
-    core.WalletPoolBuilder.createInstance()
+    builder
       .setHttpClient(ClientFactory.httpCoreClient)
       .setWebsocketClient(ClientFactory.webSocketClient)
       .setLogPrinter(new NoOpLogPrinter(ClientFactory.threadDispatcher.getMainExecutionContext, true))
       .setThreadDispatcher(ClientFactory.threadDispatcher)
-      .setPathResolver(new ScalaPathResolver(corePoolId(poolDto.userId, poolDto.name)))
+      .setPathResolver(new ScalaPathResolver(corePoolId(poolName)))
       .setRandomNumberGenerator(new SecureRandomRNG)
-      .setDatabaseBackend(dbBackend)
       .setConfiguration(poolConfig)
-      .setName(poolDto.name)
+      .setName(poolName)
       .build()
   }
 
-  private def corePoolId(userId: Long, poolName: String): String = HexUtils.valueOf(Sha256Hash.hash(s"$userId:$poolName".getBytes))
+  private def corePoolId(poolName: String): String = HexUtils.valueOf(Sha256Hash.hash(s"$poolName".getBytes))
 }
 
 case class WalletPoolView(

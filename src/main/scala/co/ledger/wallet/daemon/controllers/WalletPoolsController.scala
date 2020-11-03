@@ -1,10 +1,9 @@
 package co.ledger.wallet.daemon.controllers
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser, WithPoolInfo}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, WalletDaemonRequest, WithPoolInfo}
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.filters.DeprecatedRouteFilter
-import co.ledger.wallet.daemon.filters.AuthentifiedUserContext._
 import co.ledger.wallet.daemon.services.PoolsService
 import co.ledger.wallet.daemon.services.PoolsService.PoolConfiguration
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -23,8 +22,8 @@ class WalletPoolsController @Inject()(poolsService: PoolsService) extends Contro
     *
     */
   get("/pools") { request: Request =>
-    info(s"GET wallet pools $request, Parameters(user: ${request.user.get.id})")
-    poolsService.pools(request.user.get)
+    info(s"GET wallet pools $request")
+    poolsService.pools()
   }
 
   /**
@@ -47,7 +46,7 @@ class WalletPoolsController @Inject()(poolsService: PoolsService) extends Contro
     */
   filter[DeprecatedRouteFilter].post("/pools/operations/synchronize") {
     request: Request => {
-      info(s"SYNC wallet pools $request, Parameters(user: ${request.user.get.id})")
+      info(s"SYNC wallet pools $request")
       val t0 = System.currentTimeMillis()
       poolsService.syncOperations.map { result =>
         val t1 = System.currentTimeMillis()
@@ -93,20 +92,20 @@ object WalletPoolsController {
   case class CreationRequest(
                               @NotEmpty @JsonProperty pool_name: String,
                               request: Request
-                            ) extends RequestWithUser with WithPoolInfo {
+                            ) extends WalletDaemonRequest with WithPoolInfo {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 
-    override def toString: String = s"$request, Parameters(user: ${user.id}, pool_name: $pool_name)"
+    override def toString: String = s"$request, Parameters(pool_name: $pool_name)"
   }
 
   case class PoolRouteRequest(
                                @RouteParam pool_name: String,
-                               request: Request) extends RequestWithUser with WithPoolInfo {
+                               request: Request) extends WalletDaemonRequest with WithPoolInfo {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 
-    override def toString: String = s"$request, Parameters(user: ${user.id}, pool_name: $pool_name)"
+    override def toString: String = s"$request, Parameters(pool_name: $pool_name)"
   }
 
 }

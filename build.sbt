@@ -1,5 +1,5 @@
 name := "wallet-daemon"
-version := "2.9.0-rc.4"
+version := "2.9.1-rc.3"
 organization := "co.ledger"
 scalaVersion := "2.12.10"
 buildInfoPackage := "co.ledger.wallet.daemon"
@@ -40,7 +40,9 @@ unmanagedResourceDirectories in IntegrationTest += baseDirectory.value / "src" /
 // -q: Hide logs for successful tests
 testOptions in Test := Seq(Tests.Argument(TestFrameworks.JUnit, "-a", "-q"))
 
-enablePlugins(JavaServerAppPackaging)
+enablePlugins(JavaAgent, JavaServerAppPackaging)
+
+javaAgents += "com.datadoghq" % "dd-java-agent" % "0.65.0" % "dist"
 
 // Inspired by https://tpolecat.github.io/2017/04/25/scalac-flags.html
 scalacOptions ++= Seq(
@@ -98,7 +100,7 @@ lazy val versions = new {
   val postgres   = "42.2.12"
   val scalacheck = "1.13.4"
   val scalatest  = "3.0.0"
-  val slick      = "3.2.1"
+  val slick      = "3.3.2"
   val specs2     = "2.4.17"
   val sqlite     = "3.7.15-M1"
   val tyrus      = "1.13.1"
@@ -106,6 +108,8 @@ lazy val versions = new {
   val web3j      = "4.5.1"
   val guava      = "28.1-jre"
   val rabbitmq   = "5.9.0"
+  val akka       = "2.6.10"
+  val akkaRabbitMQ = "6.0.0"
 }
 // scalastyle:on
 
@@ -120,6 +124,7 @@ lazy val root = (project in file("."))
       "org.typelevel"                %% "cats-core"              % versions.cats,
       "com.twitter"                  %% "finatra-http"           % versions.finatra,
       "com.twitter"                  %% "finatra-jackson"        % versions.finatra,
+      "io.github.finagle"            %% "finagle-postgres"       % "0.12.0",
       "com.h2database"               %  "h2"                     % versions.h2,
       "ch.qos.logback"               %  "logback-classic"        % versions.logback,
       "org.postgresql"               %  "postgresql"             % versions.postgres,
@@ -135,8 +140,12 @@ lazy val root = (project in file("."))
       "io.circe"                     %% "circe-generic"          % versions.circe,
       "io.circe"                     %% "circe-parser"           % versions.circe,
       "com.rabbitmq"                 %  "amqp-client"            % versions.rabbitmq,
+      "com.typesafe.akka"            %% "akka-actor"             % versions.akka,
+      "com.typesafe.akka"            %% "akka-slf4j"             % versions.akka,
+      "com.newmotion"                %% "akka-rabbitmq"          % versions.akkaRabbitMQ,
 
-      // Tests dependencies
+
+// Tests dependencies
       "org.specs2"                   %% "specs2-mock"            % versions.specs2     % "it",
       "com.google.inject.extensions" %  "guice-testlib"          % versions.guice      % "it",
       "com.novocode"                 %  "junit-interface"        % versions.junitI     % "it",
@@ -160,5 +169,6 @@ lazy val root = (project in file("."))
 
 libraryDependencies ++= Seq(
   compilerPlugin("com.github.ghik" %% "silencer-plugin" % "1.3.1"),
-  "com.github.ghik" %% "silencer-lib" % "1.3.1" % Provided
+  "com.github.ghik" %% "silencer-lib" % "1.3.1" % Provided,
+  "com.datadoghq" % "java-dogstatsd-client" % "2.10.1"
 )

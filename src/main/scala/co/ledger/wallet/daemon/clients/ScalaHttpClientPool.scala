@@ -8,7 +8,7 @@ import com.twitter.finagle.http.{Request, Response}
 import com.twitter.finagle.service.{Backoff, RetryBudget}
 import com.twitter.finagle.{Http, Service}
 import com.twitter.inject.Logging
-import com.twitter.util.Duration
+import com.twitter.util.{Duration, StorageUnit}
 
 import scala.util.Try
 
@@ -43,7 +43,7 @@ class ScalaHttpClientPool extends Logging {
   def execute(host: Host, request: Request): com.twitter.util.Future[Response] =
     serviceForHost(host)(request).map(response => {
       info(s"Received from ${request.host.getOrElse("No host")} - ${request.uri} status=${response.status.code} " +
-        s"error=${isOnError(response.status.code)} - statusText=${response.status.reason} - " +
+        s" - statusText=${response.status.reason} - " +
         s"Request : $request - (Payload : ${Utils.preview(request.getContentString(), 200)}) - " +
         s"Response : $response - (Payload : ${Utils.preview(response.getContentString(), 200)})")
       response
@@ -61,6 +61,7 @@ object ScalaHttpClientPool extends Logging {
   // FIXME Client sharing ?
   private val client = Http.client
     .withRetryBudget(budget)
+    .withMaxResponseSize(StorageUnit.fromBytes(Int.MaxValue))
     .withRetryBackoff(Backoff.linear(
       Duration.fromMilliseconds(DaemonConfiguration.explorer.client.retryBackoff),
       Duration.fromMilliseconds(DaemonConfiguration.explorer.client.retryBackoff)))
@@ -91,9 +92,9 @@ object ScalaHttpClientPool extends Logging {
   def proxyFor(host: Host): Option[DaemonConfiguration.Proxy] = {
     DaemonConfiguration.explorer.api.proxyUse.get(host) match {
       case Some(false) =>
-        info(s"No proxy for $host")
+        info(s"No Proxy will be used for $host")
         None
-      case _ => DaemonConfiguration.proxy
+      case _ => Some(DaemonConfiguration.proxy)
     }
   }
 }

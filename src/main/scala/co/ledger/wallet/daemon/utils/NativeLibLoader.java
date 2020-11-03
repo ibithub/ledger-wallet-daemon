@@ -125,37 +125,41 @@ public class NativeLibLoader {
         // System libraries *must* be loaded from the filesystem,
         // so we must copy the lib's data from the jar to a tempfile
 
-        InputStream libIn =
-                NativeLibLoader.class.getResourceAsStream(libPath.toString());
-        if (libIn == null) { return; } // Invalid `libPath`
+        try(InputStream libIn =
+                NativeLibLoader.class.getResourceAsStream(libPath.toString())) {
+            if (libIn == null) {
+                return;
+            } // Invalid `libPath`
 
-        // Name the tempfile
-        String libName = libPath.getName(libPath.getNameCount() - 1).toString();
-        // Name the tempfile after the lib to ease debugging
-        String suffix = null;
-        int extPos = libName.lastIndexOf('.');
-        if (extPos > 0) { suffix = libName.substring(extPos + 1); }
-        // Try to suffix the tempfile with the lib's suffix so that other
-        // tools (e.g. profilers) identify the file correctly
+            // Name the tempfile
+            String libName = libPath.getName(libPath.getNameCount() - 1).toString();
+            // Name the tempfile after the lib to ease debugging
+            String suffix = null;
+            int extPos = libName.lastIndexOf('.');
+            if (extPos > 0) {
+                suffix = libName.substring(extPos + 1);
+            }
+            // Try to suffix the tempfile with the lib's suffix so that other
+            // tools (e.g. profilers) identify the file correctly
 
-        File tempLib = File.createTempFile(libName, suffix);
-        tempLib.deleteOnExit();
+            File tempLib = File.createTempFile(libName, suffix);
+            tempLib.deleteOnExit();
 
-        log.log(
-                Level.FINE,
-                "Copying jar lib " + libPath + " to " + tempLib.getAbsolutePath());
-        try {
-            Files.copy(libIn, tempLib.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        } catch (SecurityException e) {
-            throw new RuntimeException(
-                    "SecurityException while trying to create tempfile: " +
-                            e.getMessage() + "\n\n If you cannot grant this process " +
-                            "permissions to create temporary files, you need to install " +
-                            "the native libraries manually and provide the installation " +
-                            "path(s) using the system property " + djinniNativeLibsSysProp);
+            log.log(
+                    Level.FINE,
+                    "Copying jar lib " + libPath + " to " + tempLib.getAbsolutePath());
+            try {
+                Files.copy(libIn, tempLib.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } catch (SecurityException e) {
+                throw new RuntimeException(
+                        "SecurityException while trying to create tempfile: " +
+                                e.getMessage() + "\n\n If you cannot grant this process " +
+                                "permissions to create temporary files, you need to install " +
+                                "the native libraries manually and provide the installation " +
+                                "path(s) using the system property " + djinniNativeLibsSysProp);
+            }
+            loadLibrary(tempLib.getAbsolutePath());
         }
-
-        loadLibrary(tempLib.getAbsolutePath());
     }
 
     private static boolean canBeLoaded(String filepath) {

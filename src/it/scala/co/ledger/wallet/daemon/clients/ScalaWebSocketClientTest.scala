@@ -46,5 +46,7 @@ class ScalaWebSocketClientTest extends AssertionsForJUnit {
     override def getConnectionId: Int = conId
 
     private var conId: Int = -1
+
+    override def destroy(): Unit = {}
   }
 }

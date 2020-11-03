@@ -1,8 +1,0 @@
-port:
-  tcp:9200:
-    listening: true
-    ip:
-      - 0.0.0.0
-process:
-  java:
-    running: true

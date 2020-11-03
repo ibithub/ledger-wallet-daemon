@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.controllers
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser, WithPoolInfo, WithWalletInfo}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, WalletDaemonRequest, WithPoolInfo, WithWalletInfo}
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.filters.DeprecatedRouteFilter
 import co.ledger.wallet.daemon.services.WalletsService
@@ -58,7 +58,7 @@ object WalletsController {
                                @RouteParam pool_name: String,
                                @RouteParam wallet_name: String,
                                request: Request
-                             ) extends RequestWithUser with WithWalletInfo {
+                             ) extends WalletDaemonRequest with WithWalletInfo {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 
@@ -71,7 +71,7 @@ object WalletsController {
                                 @QueryParam offset: Option[Int],
                                 @QueryParam count: Option[Int],
                                 request: Request
-                              ) extends RequestWithUser with WithPoolInfo {
+                              ) extends WalletDaemonRequest with WithPoolInfo {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 
@@ -88,7 +88,7 @@ object WalletsController {
                                   @NotEmpty @JsonProperty currency_name: String,
                                   @JsonProperty is_native_segwit: Boolean = false,
                                   request: Request
-                                ) extends RequestWithUser with WithWalletInfo {
+                                ) extends WalletDaemonRequest with WithWalletInfo {
     @MethodValidation
     def validateWalletName: ValidationResult = CommonMethodValidations.validateName("wallet_name", wallet_name)
 

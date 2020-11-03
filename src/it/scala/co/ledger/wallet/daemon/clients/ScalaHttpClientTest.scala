@@ -184,6 +184,8 @@ class ScalaHttpClientTest extends AssertionsForJUnit with Logging {
       result.set(Option(httpUrlConnection).map(Right(_)).getOrElse(Left(error)))
       countDownLatch.countDown()
     }
+
+    override def destroy(): Unit = {}
   }
 
 

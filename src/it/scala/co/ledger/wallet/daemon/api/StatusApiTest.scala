@@ -17,7 +17,7 @@ class StatusApiTest extends APIFeatureTest {
   server.mapper.registerModule(module)
 
   test("_version endpoint is returning buildinfo") {
-    val versionResponse = parse[VersionResponse](server.httpGet("/_version", headers = defaultHeaders, andExpect = Status.Ok))
+    val versionResponse = parse[VersionResponse](server.httpGet("/_version", andExpect = Status.Ok))
     assert(isValidVersion(versionResponse.libcoreVersion), versionResponse.libcoreVersion)
     assert(isValidVersion(versionResponse.version))
     assert(isValidVersion(versionResponse.scalaVersion))

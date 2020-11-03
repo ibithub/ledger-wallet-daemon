@@ -58,8 +58,8 @@ class ApiClient(implicit val ec: ExecutionContext) extends Logging {
     currencyServiceUrl.getOrElse(currencyName, currencyServiceUrl("default"))
 
   private def feesPathForCurrency(currencyName: String): String =
-    DaemonConfiguration.explorer.api.fees.getOrElse(currencyName,
-      throw new UnsupportedOperationException(s"Currency not supported '$currencyName'")).path
+    DaemonConfiguration.explorer.api.paths.get(currencyName).flatMap(_.feesPath)
+      .fold(throw new UnsupportedOperationException(s"Currency not supported '$currencyName'"))(_.path)
 
 
   def getFeesRipple: Future[RippleFeeInfo] = {

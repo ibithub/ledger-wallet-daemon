@@ -12,9 +12,9 @@ import scala.concurrent.duration.Duration
 class PoolTest extends AssertionsForJUnit {
 
   NativeLibLoader.loadLibs()
-  private val testPool = Pool.newInstance(Await.result(Pool.newCoreInstance(new PoolDto("test_pool", 1L, "", Option(0L))), Duration.Inf), 1L)
+  private val testPool = Pool.newPoolInstance(PoolDto("test_pool", "", Option(0L))).get
   private val notExistingWallet = Await.result(testPool.wallet("not_exist"), Duration.Inf)
-  private val samePool = Pool.newInstance(Await.result(Pool.newCoreInstance(new PoolDto("test_pool", 1L, "", Option(0L))), Duration.Inf), 1L)
+  private val samePool = Pool.newPoolInstance(PoolDto("test_pool", "", Option(0L))).get
 
   private val wallet = Await.result(testPool.addWalletIfNotExist("test_wallet", "bitcoin", isNativeSegwit = false).flatMap { testWallet =>
     testPool.wallet("test_wallet").flatMap { sameWallet =>
@@ -42,7 +42,6 @@ class PoolTest extends AssertionsForJUnit {
     assert(count == 1)
     assert(wallets.size == 1)
     assert(List((wallet.getName, wallet.getCurrency.getName)) == wallets.map( w => (w.getName, w.getCurrency.getName)))
-    assert(Await.result(testPool.sync(), Duration.Inf).isEmpty)
   }
 
 }

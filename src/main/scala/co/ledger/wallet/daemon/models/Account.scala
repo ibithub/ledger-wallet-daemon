@@ -1,34 +1,31 @@
 package co.ledger.wallet.daemon.models
 
-import java.util.{Calendar, Date}
-
-import cats.instances.future._
-import cats.instances.list._
-import cats.syntax.either._
-import cats.syntax.traverse._
+import cats.implicits._
 import co.ledger.core
 import co.ledger.core._
 import co.ledger.core.implicits.{InvalidEIP55FormatException, NotEnoughFundsException, UnsupportedOperationException, _}
 import co.ledger.wallet.daemon.clients.ApiClient.{XlmFeeInfo, XtzFeeInfo}
 import co.ledger.wallet.daemon.clients.ClientFactory
+import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.controllers.TransactionsController._
 import co.ledger.wallet.daemon.exceptions._
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Currency._
+import co.ledger.wallet.daemon.models.Operations.OperationView
 import co.ledger.wallet.daemon.models.coins.Coin.TransactionView
 import co.ledger.wallet.daemon.models.coins._
 import co.ledger.wallet.daemon.schedulers.observers.{SynchronizationEventReceiver, SynchronizationResult}
 import co.ledger.wallet.daemon.services.SyncStatus
 import co.ledger.wallet.daemon.utils.HexUtils
-import co.ledger.wallet.daemon.utils.Utils.{RichBigInt, RichCoreBigInt}
-import co.ledger.wallet.daemon.configurations.DaemonConfiguration
+import co.ledger.wallet.daemon.utils.Utils._
+import co.ledger.wallet.daemon.utils.Utils.{DestroyableOperationQuery, RichBigInt, RichCoreBigInt}
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.google.common.primitives.UnsignedInteger
 import com.twitter.inject.Logging
 
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.math.BigDecimal
 
 object Account extends Logging {
 
@@ -38,21 +35,21 @@ object Account extends Logging {
     }
 
     def erc20Balances(contracts: Option[Array[String]])(implicit ex: ExecutionContext): Future[Seq[scala.BigInt]] = {
-      val contractList = (contracts.getOrElse(a.asEthereumLikeAccount().getERC20Accounts.asScala.toArray.map(ercAccount => ercAccount.getToken.getContractAddress)))
+      val contractList = contracts.getOrElse(a.asEthereumLikeAccount().getERC20Accounts.asScala.toArray.map(ercAccount => ercAccount.getToken.getContractAddress))
       a.asEthereumLikeAccount().getERC20Balances(contractList).map(_.asScala.map(coreBi => coreBi.asScala))
     }
 
-    def erc20Operations(contract: String)(implicit ec: ExecutionContext): Future[List[(core.Operation, core.ERC20LikeOperation)]] =
-      Account.erc20Operations(contract, a)
+    def erc20Operations(w: Wallet, contract: String)(implicit ec: ExecutionContext): Future[List[OperationView]] =
+      Account.erc20Operations(contract, w, a)
 
-    def erc20Operations(implicit ec: ExecutionContext): Future[List[(core.Operation, core.ERC20LikeOperation)]] =
-      Account.erc20Operations(a)
+    def erc20Operations(w: Wallet)(implicit ec: ExecutionContext): Future[List[OperationView]] =
+      Account.erc20Operations(w, a)
 
-    def batchedErc20Operations(contract: String, limit: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[(core.Operation, core.ERC20LikeOperation)]] =
-      Account.batchedErc20Operations(contract, a, limit, batch)
+    def batchedErc20Operations(w: Wallet, contract: String, limit: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[OperationView]] =
+      Account.batchedErc20Operations(contract, w, a, limit, batch)
 
-    def batchedErc20Operations(limit: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[(core.Operation, core.ERC20LikeOperation)]] =
-      Account.batchedErc20Operations(a, limit, batch)
+    def batchedErc20Operations(w: Wallet, limit: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[OperationView]] =
+      Account.batchedErc20Operations(w, a, limit, batch)
 
     def erc20Accounts: Either[Exception, List[core.ERC20LikeAccount]] =
       Account.erc20Accounts(a)
@@ -60,11 +57,11 @@ object Account extends Logging {
     def erc20Account(tokenAddress: String): Either[Exception, core.ERC20LikeAccount] =
       asERC20Account(tokenAddress, a)
 
-    def getUtxo(offset: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[co.ledger.core.BitcoinLikeOutput]] = {
-      Account.getUtxo(offset, batch, a)
+    def getUtxo(referenceHeight: Long, offset: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[UTXOView]] = {
+      Account.getUtxo(referenceHeight, offset, batch, a)
     }
 
-    def getUtxoCount(): Future[Int] = {
+    def getUtxoCount: Future[Int] = {
       Account.getUtxoCount(a)
     }
 
@@ -74,14 +71,14 @@ object Account extends Logging {
     def balances(start: String, end: String, timePeriod: core.TimePeriod)(implicit ec: ExecutionContext): Future[List[scala.BigInt]] =
       Account.balances(start, end, timePeriod, a)
 
-    def firstOperation(implicit ec: ExecutionContext): Future[Option[core.Operation]] =
-      Account.firstOperation(a)
+    def firstOperationView(w: Wallet)(implicit ec: ExecutionContext): Future[Option[OperationView]] =
+      Account.firstOperationView(w, a)
 
     def operationCounts(implicit ec: ExecutionContext): Future[Map[core.OperationType, Int]] =
       Account.operationCounts(a)
 
-    def accountView(walletName: String, cv: CurrencyView, syncStatus: SyncStatus)(implicit ec: ExecutionContext): Future[AccountView] =
-      Account.accountView(walletName, cv, a, syncStatus)
+    def accountView(pool: Pool, wallet: Wallet, cv: CurrencyView, syncStatus: SyncStatus)(implicit ec: ExecutionContext): Future[AccountView] =
+      Account.accountView(pool, wallet, cv, a, syncStatus)
 
     def erc20AccountView(erc20Acc: ERC20LikeAccount, wallet: Wallet, syncStatus: SyncStatus)(implicit ec: ExecutionContext): Future[ERC20FullAccountView] =
       Account.erc20AccountView(a, erc20Acc, wallet, syncStatus)
@@ -107,20 +104,20 @@ object Account extends Logging {
     def createTransaction(transactionInfo: TransactionInfo, w: core.Wallet)(implicit ec: ExecutionContext): Future[TransactionView] =
       Account.createTransaction(transactionInfo, a, w)
 
-    def operation(uid: String, fullOp: Int)(implicit ec: ExecutionContext): Future[Option[core.Operation]] =
-      Account.operation(uid, fullOp, a)
 
-    def operations(offset: Int, batch: Int, fullOp: Int)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] =
-      Account.operations(offset, batch, fullOp, a.queryOperations())
+    def operationView(uid: String, fullOp: Int, w: Wallet)(implicit ec: ExecutionContext): Future[Option[OperationView]] = Account.operationView(uid, fullOp, w, a)
 
-    def operationsFromHeight(offset: Int, batch: Int, fullOp: Int, fromHeight: Long)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] = {
+    def operationViews(offset: Int, batch: Int, fullOp: Int, w: Wallet)(implicit ec: ExecutionContext): Future[Seq[OperationView]] =
+      Account.operationViews(offset, batch, fullOp, a.queryOperations(), w, a)
+
+    def latestOperationViews(latests: Int, w: Wallet)(implicit ec: ExecutionContext): Future[Seq[OperationView]] =
+      Account.latestOperationViews(latests, a.queryOperations(), w, a)
+
+    def operationViewsFromHeight(offset: Int, batch: Int, fullOp: Int, fromHeight: Long, w: Wallet)(implicit ec: ExecutionContext): Future[Seq[OperationView]] = {
       val opQuery: OperationQuery = a.queryOperations()
-      opQuery.filter().opAnd(QueryFilter.blockHeightGt(fromHeight))
-      Account.operations(offset, batch, fullOp, opQuery)
+      opQuery.filter().opAnd(QueryFilter.blockHeightGt(fromHeight).opOr(QueryFilter.blockHeightIsNull()))
+      Account.operationViews(offset, batch, fullOp, opQuery, w, a)
     }
-
-    def latestOperations(latests: Int)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] =
-      Account.latestOperations(latests, a.queryOperations())
 
     def freshAddresses(implicit ec: ExecutionContext): Future[Seq[core.Address]] =
       Account.freshAddresses(a)
@@ -133,7 +130,7 @@ object Account extends Logging {
   }
 
   def balance(a: core.Account)(implicit ex: ExecutionContext): Future[scala.BigInt] = a.getBalance().map { b =>
-    debug(s"Account ${a.getIndex}, balance: $b")
+    debug(s"Account ${a.getWalletType}:${a.getIndex}, balance: $b")
     b.toBigInt.asScala
   }
 
@@ -153,8 +150,8 @@ object Account extends Logging {
     })
   }
 
-  def getUtxo(offset: Int, batch: Int, a: core.Account)(implicit ex: ExecutionContext): Future[List[co.ledger.core.BitcoinLikeOutput]] = {
-    a.asBitcoinLikeAccount().getUTXO(offset, offset + batch).map(_.asScala.toList)
+  def getUtxo(referenceHeight: Long, offset: Int, batch: Int, a: core.Account)(implicit ex: ExecutionContext): Future[List[UTXOView]] = {
+    a.asBitcoinLikeAccount().getUTXO(offset, offset + batch).map(_.asScala.toList.map(UTXOView.fromBitcoinOutput(_, referenceHeight)))
   }
 
   def getUtxoCount(a: core.Account): Future[Int] = {
@@ -170,63 +167,67 @@ object Account extends Logging {
       balance <- account.getBalance()
     } yield balance.asScala
 
-  def erc20Operations(contract: String, a: core.Account)(implicit ec: ExecutionContext): Future[List[(core.Operation, core.ERC20LikeOperation)]] =
-    asERC20Account(contract, a).liftTo[Future].flatMap(erc20Operations)
+  def erc20Operations(contract: String, w: Wallet, a: core.Account)(implicit ec: ExecutionContext): Future[List[OperationView]] =
+    asERC20Account(contract, a).liftTo[Future].flatMap(erc20Operations(w, a, _))
 
-  def erc20Operations(a: core.Account)(implicit ec: ExecutionContext): Future[List[(core.Operation, core.ERC20LikeOperation)]] =
+  def erc20Operations(w: Wallet, a: core.Account)(implicit ec: ExecutionContext): Future[List[OperationView]] =
     for {
       account <- asETHAccount(a).liftTo[Future]
-      ops <- account.getERC20Accounts.asScala.toList.flatTraverse(erc20Operations)
+      ops <- account.getERC20Accounts.asScala.toList.flatTraverse(erc20Operations(w, a, _))
     } yield ops
 
-  private def erc20Operations(a: core.ERC20LikeAccount)(implicit ec: ExecutionContext): Future[List[(core.Operation, core.ERC20LikeOperation)]] =
-    a.queryOperations().complete().execute().map(_.asScala.toList).map { coreOps =>
+  private def erc20Operations(w: Wallet, a: core.Account, aErc20: core.ERC20LikeAccount)(implicit ec: ExecutionContext): Future[List[OperationView]] =
+    aErc20.queryOperations().complete().executeAndDestroy().map(_.asScala.toList).map { coreOps =>
       val hashToCoreOps = coreOps.map(coreOp => coreOp.asEthereumLikeOperation().getTransaction.getHash -> coreOp).toMap
-      val erc20Ops = a.getOperations.asScala.toList
+      val erc20Ops = aErc20.getOperations.asScala.toList
       erc20Ops.filter(erc20Op => {
         val opFound = hashToCoreOps.contains(erc20Op.getHash)
         if (!opFound) {
-          error(s"Requested operation ${erc20Op.getHash} from account ${a.getAddress} has been skipped due to inconsistencies.")
+          error(s"Requested operation ${erc20Op.getHash} from account ${aErc20.getAddress} has been skipped due to inconsistencies.")
         }
         opFound
       }
-      ).map(erc20Op => (hashToCoreOps(erc20Op.getHash), erc20Op))
-    }
+      ).map(erc20Op => Operations.getErc20View(erc20Op, hashToCoreOps(erc20Op.getHash), w, a)).sequence
+    }.flatten
 
-  def batchedErc20Operations(contract: String, a: core.Account, offset: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[(core.Operation, core.ERC20LikeOperation)]] =
-    asERC20Account(contract, a).liftTo[Future].flatMap(erc20Acc => batchedErc20Operations(erc20Acc, offset, batch))
+  def batchedErc20Operations(contract: String, w: Wallet, a: core.Account, offset: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[OperationView]] =
+    asERC20Account(contract, a).liftTo[Future].flatMap(erc20Acc => batchedErc20Operations(w, a, erc20Acc, offset, batch))
 
-  def batchedErc20Operations(a: core.Account, offset: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[(core.Operation, core.ERC20LikeOperation)]] =
+  def batchedErc20Operations(w: Wallet, a: core.Account, offset: Int, batch: Int)
+                            (implicit ec: ExecutionContext): Future[List[OperationView]] =
     for {
       account <- asETHAccount(a).liftTo[Future]
-      ops = account.getERC20Accounts.asScala.toList.map(erc20Account => batchedErc20Operations(erc20Account, offset, batch))
+      ops = account.getERC20Accounts.asScala.toList.map(erc20Account => batchedErc20Operations(w, a, erc20Account, offset, batch))
       result <- Future.sequence(ops).map(_.flatten)
     } yield result
 
-  private def batchedErc20Operations(a: core.ERC20LikeAccount, offset: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[(core.Operation, core.ERC20LikeOperation)]] =
-    a.queryOperations().offset(offset).limit(batch).addOrder(OperationOrderKey.DATE, true).complete().execute().map(_.asScala.toList).map { coreOps =>
-      val hashToERC20 = a.getOperations.asScala.toList.map(erc20Op => erc20Op.getHash -> erc20Op).toMap
-      coreOps.map(coreOp => (coreOp, hashToERC20(coreOp.asEthereumLikeOperation().getTransaction.getHash)))
-    }
+  private def batchedErc20Operations(w: Wallet, acc: Account, a: core.ERC20LikeAccount, offset: Int, batch: Int)
+                                    (implicit ec: ExecutionContext): Future[List[OperationView]] =
+    a.queryOperations().offset(offset).limit(batch).addOrder(OperationOrderKey.DATE, true).complete().executeAndDestroy()
+      .map(_.asScala.toList)
+      .map { coreOps =>
+        val hashToERC20 = a.getOperations.asScala.toList.map(erc20Op => erc20Op.getHash -> erc20Op).toMap
+        coreOps.map(coreOp => Operations.getErc20View(hashToERC20(coreOp.asEthereumLikeOperation().getTransaction.getHash), coreOp, w, acc)).sequence
+      }.flatten
 
   def operationCounts(a: core.Account)(implicit ex: ExecutionContext): Future[Map[core.OperationType, Int]] =
-    a.queryOperations().addOrder(OperationOrderKey.DATE, true).partial().execute().map { os =>
+    a.queryOperations().addOrder(OperationOrderKey.DATE, true).partial().executeAndDestroy().map { os =>
       os.asScala.groupBy(o => o.getOperationType).map { case (optType, opts) => (optType, opts.size) }
     }
 
-  def accountView(walletName: String, cv: CurrencyView, a: core.Account, syncStatus: SyncStatus)(implicit ex: ExecutionContext): Future[AccountView] =
+  def accountView(pool: Pool, w: Wallet, cv: CurrencyView, a: core.Account, syncStatus: SyncStatus)(implicit ex: ExecutionContext): Future[AccountView] =
     for {
       b <- balance(a)
-      opsCount <- operationCounts(a)
-    } yield AccountView(walletName, a.getIndex, b, opsCount, a.getRestoreKey, cv, syncStatus)
+      opsCount <- pool.walletPoolDao.countOperations(a, w).asScala()
+    } yield AccountView(w.getName, a.getIndex, b, opsCount, a.getRestoreKey, cv, syncStatus)
 
 
   def erc20AccountView(
-      a: core.Account,
-      erc20Account: ERC20LikeAccount,
-      wallet: Wallet,
-      syncStatus: SyncStatus
-  )(implicit ex: ExecutionContext): Future[ERC20FullAccountView] = {
+                        a: core.Account,
+                        erc20Account: ERC20LikeAccount,
+                        wallet: Wallet,
+                        syncStatus: SyncStatus
+                      )(implicit ex: ExecutionContext): Future[ERC20FullAccountView] = {
     for {
       balance <- a.erc20Balance(erc20Account.getToken.getContractAddress)
     } yield ERC20FullAccountView.fromERC20Account(
@@ -380,15 +381,21 @@ object Account extends Logging {
             case _: InvalidEIP55FormatException => Future.failed(InvalidEIP55Format(ti.recipient))
             case _: NotEnoughFundsException => Future.failed(ERC20BalanceNotEnough(contract, 0, ti.amount))
           }
+
           gasLimit <- ti.gasLimit match {
             case Some(amount) => Future.successful(amount)
             case None => ClientFactory.apiClient.getGasLimit(
-              c, ti.contract.getOrElse(ti.recipient), Some(erc20Account.getAddress), Some(inputData))
+              c, ti.contract.getOrElse(ti.recipient), Some(erc20Account.getAddress), Some(inputData)
+            ).map {
+              v =>
+                (BigDecimal(v) * BigDecimal(DaemonConfiguration.ETH_SMART_CONTRACT_GAS_LIMIT_FACTOR))
+                  .setScale(0, BigDecimal.RoundingMode.CEILING).toBigInt()
+            }
           }
         } yield {
           a.asEthereumLikeAccount()
             .buildTransaction()
-            .setGasLimit(c.convertAmount((BigDecimal(gasLimit) * BigDecimal(DaemonConfiguration.ETH_SMART_CONTRACT_GAS_LIMIT_FACTOR)).setScale(0, BigDecimal.RoundingMode.CEILING).toBigInt()))
+            .setGasLimit(c.convertAmount(gasLimit))
             .sendToAddress(c.convertAmount(0), contract)
             .setInputData(inputData)
         }
@@ -536,58 +543,47 @@ object Account extends Logging {
     }
   }
 
-  def operation(uid: String, fullOp: Int, a: core.Account)(implicit ec: ExecutionContext): Future[Option[core.Operation]] = {
+  def operationView(uid: String, fullOp: Int, w: Wallet, a: core.Account)(implicit ec: ExecutionContext): Future[Option[OperationView]] = {
     val q = a.queryOperations()
     q.filter().opAnd(core.QueryFilter.operationUidEq(uid))
-    (if (fullOp > 0) q.complete().execute()
-    else q.partial().execute()).map { ops =>
+    (if (fullOp > 0) q.complete().executeAndDestroy()
+    else q.partial().executeAndDestroy()).flatMap { ops =>
       debug(s"Found ${ops.size()} operation(s) with uid : $uid")
-      ops.asScala.headOption
+      ops.asScala.headOption.map(Operations.getViewAndDestroy(_, w, a)).sequence
     }
   }
 
-  def firstOperation(a: core.Account)(implicit ec: ExecutionContext): Future[Option[core.Operation]] = {
-    a.queryOperations().addOrder(OperationOrderKey.DATE, false).limit(1).partial().execute()
-      .map { ops => ops.asScala.toList.headOption }
+  def firstOperationView(w: Wallet, a: core.Account)(implicit ec: ExecutionContext): Future[Option[OperationView]] = {
+    a.queryOperations().addOrder(OperationOrderKey.DATE, false).limit(1).partial().executeAndDestroy()
+      .map { ops =>
+        ops.asScala.toList.headOption
+          .map(op => Operations.getViewAndDestroy(op, w, a)).sequence
+      }.flatten
   }
 
-  def operations(offset: Int, batch: Int, fullOp: Int, query: OperationQuery)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] = {
+  def operationViews(offset: Int, batch: Int, fullOp: Int, query: OperationQuery, wallet: Wallet, a: Account)
+                    (implicit ec: ExecutionContext): Future[Seq[OperationView]] = {
     (if (fullOp > 0) {
-      query.addOrder(OperationOrderKey.DATE, true).offset(offset).limit(batch).complete().execute()
+      query.addOrder(OperationOrderKey.DATE, true).offset(offset).limit(batch).complete().executeAndDestroy()
     } else {
-      query.addOrder(OperationOrderKey.DATE, true).offset(offset).limit(batch).partial().execute()
-    }).map { operations => operations.asScala.toList }
+      query.addOrder(OperationOrderKey.DATE, true).offset(offset).limit(batch).partial().executeAndDestroy()
+    }).map { operations =>
+      Future.sequence(operations.asScala.toList.map(op => Operations.getViewAndDestroy(op, wallet, a)))
+    }.flatten
   }
 
-  def latestOperations(latests: Int, query: OperationQuery)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] = {
-    query.addOrder(OperationOrderKey.DATE, true).offset(0).limit(latests).complete().execute().map { operations => operations.asScala.toList }
+  def latestOperationViews(latests: Int, query: OperationQuery, w: Wallet, a: Account)
+                          (implicit ec: ExecutionContext): Future[Seq[OperationView]] = {
+    query.addOrder(OperationOrderKey.DATE, true).offset(0).limit(latests).complete().executeAndDestroy()
+      .map { operations =>
+        Future.sequence(operations.asScala.toList.map(Operations.getViewAndDestroy(_, w, a)))
+      }.flatten
   }
 
-  def balances(start: String, end: String, timePeriod: core.TimePeriod, a: core.Account)(implicit ec: ExecutionContext): Future[List[scala.BigInt]] = {
+  def balances(start: String, end: String, timePeriod: core.TimePeriod, a: core.Account)
+              (implicit ec: ExecutionContext): Future[List[scala.BigInt]] = {
     a.getBalanceHistory(start, end, timePeriod).map { balances =>
       balances.asScala.toList.map { ba => ba.toBigInt.asScala }
-    }
-  }
-
-  @tailrec
-  private def filter(start: Date, i: Int, end: Date, timePeriod: Int, operations: List[core.Operation], preResult: List[Map[core.OperationType, Int]]): List[Map[core.OperationType, Int]] = {
-    def searchResult(condition: core.Operation => Boolean): Map[core.OperationType, Int] =
-      operations.filter(condition).groupBy(op => op.getOperationType).map { case (optType, opts) => (optType, opts.size) }
-
-    val (begin, next) = {
-      val calendar = Calendar.getInstance()
-      calendar.setTime(start)
-      calendar.add(timePeriod, i - 1)
-      val begin = calendar.getTime
-      calendar.add(timePeriod, 1)
-      (begin, calendar.getTime)
-    }
-    if (end.after(next)) {
-      val result = searchResult(op => op.getDate.compareTo(begin) >= 0 && op.getDate.compareTo(next) < 0)
-      filter(start, i + 1, end, timePeriod, operations, preResult ::: List(result))
-    } else {
-      val result = searchResult(op => op.getDate.compareTo(begin) >= 0 && op.getDate.compareTo(end) <= 0)
-      preResult ::: List(result)
     }
   }
 
@@ -606,10 +602,11 @@ object Account extends Logging {
   def sync(poolName: String, walletName: String, a: core.Account)(implicit ec: ExecutionContext): Future[SynchronizationResult] = {
     val promise: Promise[SynchronizationResult] = Promise[SynchronizationResult]()
     val receiver: core.EventReceiver = new SynchronizationEventReceiver(a.getIndex, walletName, poolName, promise)
-    a.synchronize().subscribe(LedgerCoreExecutionContext(ec), receiver)
+    val synchronizationBus = a.synchronize()
+    synchronizationBus.subscribe(LedgerCoreExecutionContext(ec), receiver)
     debug(s"Synchronize $a")
     val f = promise.future
-    f onComplete (_ => a.getEventBus.unsubscribe(receiver))
+    f onComplete (_ => synchronizationBus.unsubscribe(receiver))
     f
   }
 
@@ -720,16 +717,16 @@ object ERC20FullAccountView {
                         erc20Balance: scala.BigInt,
                         walletName: String
                       ): ERC20FullAccountView =
-  ERC20FullAccountView(
-    walletName,
-    baseAccount.getIndex,
-    erc20Balance,
-    status,
-    erc20Account.getToken.getContractAddress,
-    erc20Account.getToken.getName,
-    erc20Account.getToken.getNumberOfDecimal,
-    erc20Account.getToken.getSymbol
-  )
+    ERC20FullAccountView(
+      walletName,
+      baseAccount.getIndex,
+      erc20Balance,
+      status,
+      erc20Account.getToken.getContractAddress,
+      erc20Account.getToken.getName,
+      erc20Account.getToken.getNumberOfDecimal,
+      erc20Account.getToken.getSymbol
+    )
 }
 
 case class DerivationView(
@@ -768,3 +765,17 @@ case class UTXOView(
                      @JsonProperty("confirmations") confirmations: Long,
                      @JsonProperty("amount") amount: scala.BigInt
                    )
+
+object UTXOView {
+  def fromBitcoinOutput(output: BitcoinLikeOutput, referenceBlockHeight: Long): UTXOView = {
+    val confirmations: Long =
+      if (output.getBlockHeight >= 0) referenceBlockHeight - output.getBlockHeight else output.getBlockHeight
+    UTXOView(
+      output.getTransactionHash,
+      output.getOutputIndex,
+      output.getAddress,
+      output.getBlockHeight,
+      confirmations,
+      output.getValue.toBigInt.asScala)
+  }
+}

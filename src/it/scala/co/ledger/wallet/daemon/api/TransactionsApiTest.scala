@@ -11,7 +11,7 @@ import org.junit.Test
 @Test
 class TransactionsApiTest extends APIFeatureTest {
 
-  val poolName = "ledger"
+  val poolName = "default_test_pool"
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -24,7 +24,7 @@ class TransactionsApiTest extends APIFeatureTest {
   }
 
   test("TransactionsApi# Exclude UTXO on create transaction") {
-    val poolName = "transactionsExcludeUTXOTest"
+    val poolName = "default_test_pool"
     createPool(poolName)
     val walletName = "btcwalletutxo"
     assertWalletCreation(poolName, walletName, "bitcoin_testnet", Status.Ok)
@@ -49,7 +49,7 @@ class TransactionsApiTest extends APIFeatureTest {
   }
 
   test("TransactionsApi#Create and sign BTC transaction") {
-    val poolName = "transactionsCreation4Test"
+    val poolName = "default_test_pool"
     createPool(poolName)
     val walletName = "btcwallet"
     assertWalletCreation(poolName, walletName, "bitcoin_testnet", Status.Ok)
@@ -67,7 +67,7 @@ class TransactionsApiTest extends APIFeatureTest {
   }
 
   test("TransactionsApi# Create Partial Transaction") {
-    val poolName = "transactionsPartialTest"
+    val poolName = "default_test_pool"
     createPool(poolName)
     val walletName = "btcwallet"
     assertWalletCreation(poolName, walletName, "bitcoin_testnet", Status.Ok)
