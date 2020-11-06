@@ -15,4 +15,4 @@ apt-get install -yq libpq-dev
 # Cleanup
 apt-get clean
 rm -rf -- /var/lib/apt/lists/*
-exit 0
+
