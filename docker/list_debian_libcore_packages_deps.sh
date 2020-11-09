@@ -6,6 +6,8 @@ jar xf lib/ledger-lib-core.jar $libcore_path
 [ $? -ne 0 ] && exit 1
 
 ldd $libcore_path | sed -E 's/ *([^ ]*) .*$/\1/g' | while read lib ; do
-  apt-file -l $arch search $lib | while read package ; do echo "$lib : $package" ; done
+   echo -n "$lib :"
+   apt-file -l search $lib  | grep -v "dbg" | while read package ; do echo -n " $package" ; done
+   echo ""
 done | sort | uniq 
 
