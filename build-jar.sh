@@ -21,6 +21,7 @@ LIBCORE_AWS_URL_BASE="https://s3-eu-west-1.amazonaws.com/ledger-lib-ledger-core"
 LIBCORE_VERSION="3.5.0-rc-9936c1"
 LIBCORE_DL_DIR=$CURRENT_DIR/../lib-ledger-core-dl
 LIBCORE_SRC_DIR=$CURRENT_DIR/../lib-ledger-core
+
 INTERFACE_GEN_DIR=tools/generate_interfaces.sh
 
 function gen_interface()
