@@ -487,7 +487,8 @@ object Account extends Logging {
         case None => tezosAccount.getFees() map { res =>
             // make sure the fees are within reasonable bounds ( in [2500 ; 30000] )
             val boundedFees = res.asScala.max(scala.math.BigInt(2500)).min(scala.math.BigInt(30000))
-            XtzFeeInfo(boundedFees).getAmount(feeMethod) }
+            XtzFeeInfo(boundedFees).getAmount(feeMethod)
+        }
       }
       _ = builder.setFees(currency.convertAmount(baseFee))
 
