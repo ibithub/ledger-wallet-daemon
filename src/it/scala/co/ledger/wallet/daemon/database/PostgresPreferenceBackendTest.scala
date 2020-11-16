@@ -79,8 +79,6 @@ object PostgresPreferenceBackendTest extends Logging {
   private val preferenceBackend = new PostgresPreferenceBackend(db)
 
   @BeforeClass def initialization(): Unit = {
-    debug("******************************* before class start")
     preferenceBackend.init()
-    debug("******************************* before class end")
   }
 }
