@@ -43,7 +43,7 @@ class ScalaHttpClientPool extends Logging {
   def execute(host: Host, request: Request): com.twitter.util.Future[Response] =
     serviceForHost(host)(request).map(response => {
       info(s"Received from ${request.host.getOrElse("No host")} - ${request.uri} status=${response.status.code} " +
-        s"error=${isOnError(response.status.code)} - statusText=${response.status.reason} - " +
+        s" - statusText=${response.status.reason} - " +
         s"Request : $request - (Payload : ${Utils.preview(request.getContentString(), 200)}) - " +
         s"Response : $response - (Payload : ${Utils.preview(response.getContentString(), 200)})")
       response
