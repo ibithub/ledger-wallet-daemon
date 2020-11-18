@@ -40,7 +40,10 @@ class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: Poo
   override def receive: Receive = LoggingReceive {
     case SubscribeToOperationsCount(subscriber) => operationsCountSubscribers.add(subscriber)
 
-    case s: SyncStatus if account.isInstanceOfEthereumLikeAccount => publisher.publishERC20Accounts(account, wallet, poolName.name, s)
+    case s: SyncStatus if account.isInstanceOfEthereumLikeAccount =>
+      publisher.publishAccount(account, wallet, poolName.name, s).flatMap(_ => {
+        publisher.publishERC20Accounts(account, wallet, poolName.name, s)
+      })
     case s: SyncStatus => publisher.publishAccount(account, wallet, poolName.name, s)
 
     case NewOperationEvent(opId) if account.isInstanceOfEthereumLikeAccount =>
