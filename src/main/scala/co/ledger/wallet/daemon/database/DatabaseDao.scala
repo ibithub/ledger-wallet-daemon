@@ -21,7 +21,7 @@ class DatabaseDao @Inject()(db: Database) extends Logging {
 
 
   def migrate(): Future[Unit] = {
-    info("Start database migration")
+    info(s"Start database migration ${Tables.profile}")
     val lastMigrationVersion = databaseVersions.sortBy(_.version.desc).map(_.version).take(1).result.head
     db.run(lastMigrationVersion.transactionally) recover {
       case _ => -1
