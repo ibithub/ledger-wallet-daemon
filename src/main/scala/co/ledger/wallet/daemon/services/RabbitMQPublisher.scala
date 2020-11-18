@@ -1,42 +1,28 @@
 package co.ledger.wallet.daemon.services
 
+import akka.actor.ActorSelection
 import co.ledger.core.{Account, ERC20LikeAccount, Wallet}
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Operations.OperationView
+import com.newmotion.akka.rabbitmq.{Channel, ChannelMessage}
 import co.ledger.wallet.daemon.models.Pool
-import com.rabbitmq.client.{BuiltinExchangeType, ConnectionFactory}
 import com.twitter.finatra.json.FinatraObjectMapper
 import com.twitter.inject.Logging
-import javax.inject.Singleton
 
-import scala.collection.mutable
 import scala.concurrent.Future
 
-@Singleton
-class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
-  private val conn = {
-    val factory = new ConnectionFactory
-    factory.setUri(rabbitMQUri)
-    val conn = factory.newConnection
-    info(s"RabbitMQ: connected to ${conn.getAddress.toString}")
-    conn
-  }
-  private val chan = conn.createChannel()
-  private val declaredExchanges = mutable.HashSet[String]()
 
-  // Channel is not recommended to be used concurrently, hence synchronized
-  private def publish(exchangeName: String, routingKeys: List[String], payload: Array[Byte]): Unit = synchronized {
-    logger.info(s"Publishing for $exchangeName, ${routingKeys.mkString(".")} payload size ${payload.length} bytes")
-    if (!declaredExchanges.contains(exchangeName)) {
-      chan.exchangeDeclare(exchangeName, BuiltinExchangeType.TOPIC, true)
-      declaredExchanges += exchangeName
-    }
-    chan.basicPublish(exchangeName, routingKeys.mkString("."), null, payload)
-  }
+class RabbitMQPublisher(poolPublisher: ActorSelection) extends Logging with Publisher {
 
   private val mapper = FinatraObjectMapper.create()
+
+  private def publish(exchangeName: String, routingKeys: List[String], payload: Array[Byte]): Unit = {
+    logger.info(s"Publishing for $exchangeName, ${routingKeys.mkString(".")} payload size ${payload.length} bytes")
+    val publish: Channel => Unit = _.basicPublish(exchangeName, routingKeys.mkString("."), null, payload)
+    poolPublisher ! ChannelMessage(publish, dropIfNoChannel = false)
+  }
 
   def publishOperation(operationView: OperationView, account: Account, wallet: Wallet, poolName: String): Unit = {
     val payload = mapper.writeValueAsBytes(operationView)
@@ -88,13 +74,13 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
     )
   }
 
-  private def accountPayload(pool: Pool, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = this.synchronized {
+  private def accountPayload(pool: Pool, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = {
     account.accountView(pool, wallet, wallet.getCurrency.currencyView, syncStatus).map {
       mapper.writeValueAsBytes(_)
     }
   }
 
-  private def erc20AccountPayload(erc20Account: ERC20LikeAccount, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = this.synchronized {
+  private def erc20AccountPayload(erc20Account: ERC20LikeAccount, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = {
     account.erc20AccountView(erc20Account, wallet, syncStatus).map {
       mapper.writeValueAsBytes(_)
     }

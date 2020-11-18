@@ -23,7 +23,7 @@ class AccountOperationsPublisher(daemonCache: DaemonCache, account: Account, wal
 
   implicit val dispatcher: ExecutionContextExecutor = context.dispatcher
   val lookupDispatcher: ExecutionContextExecutor = context.system.dispatchers.lookup(SynchronizationDispatcher.configurationKey(SynchronizationDispatcher.LibcoreLookup))
-  private lazy val pool: Pool = Await.result(daemonCache.getWalletPool(PoolInfo(poolName.name)), 30.seconds).get
+  private lazy val pool: Pool = Await.result(daemonCache.getWalletPool(PoolInfo(poolName.name))(lookupDispatcher), 30.seconds).get
   private lazy val walletPoolDao = pool.walletPoolDao
 
   private val eventReceiver = new AccountOperationReceiver(self)

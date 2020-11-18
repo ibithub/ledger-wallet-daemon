@@ -109,6 +109,7 @@ lazy val versions = new {
   val guava      = "28.1-jre"
   val rabbitmq   = "5.9.0"
   val akka       = "2.6.10"
+  val akkaRabbitMQ = "6.0.0"
 }
 // scalastyle:on
 
@@ -141,6 +142,8 @@ lazy val root = (project in file("."))
       "com.rabbitmq"                 %  "amqp-client"            % versions.rabbitmq,
       "com.typesafe.akka"            %% "akka-actor"             % versions.akka,
       "com.typesafe.akka"            %% "akka-slf4j"             % versions.akka,
+      "com.newmotion"                %% "akka-rabbitmq"          % versions.akkaRabbitMQ,
+
 
 // Tests dependencies
       "org.specs2"                   %% "specs2-mock"            % versions.specs2     % "it",

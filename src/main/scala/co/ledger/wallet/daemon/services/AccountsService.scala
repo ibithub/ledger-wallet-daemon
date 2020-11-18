@@ -20,7 +20,9 @@ import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Operations.{OperationView, PackedOperationsView}
 import co.ledger.wallet.daemon.models.Wallet._
 import co.ledger.wallet.daemon.models._
+import co.ledger.wallet.daemon.modules.PublisherModule.PoolPublisher
 import co.ledger.wallet.daemon.schedulers.observers.SynchronizationResult
+import co.ledger.wallet.daemon.services.AccountOperationsPublisher.PoolName
 import co.ledger.wallet.daemon.utils.Utils
 import co.ledger.wallet.daemon.utils.Utils.{RichBigInt, _}
 import com.google.common.cache.{CacheBuilder, CacheLoader}
@@ -31,7 +33,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 @Singleton
-class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: AccountSynchronizerManager, publisher: Publisher) extends DaemonService {
+class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: AccountSynchronizerManager, poolPublisher: PoolPublisher) extends DaemonService {
 
   case class CacheKey(a: AccountInfo, contract: Option[String])
 
@@ -275,8 +277,10 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
         }
     }
 
-  // TODO : Plug it to Akka Publish Actor workflow
   def repushOperations(accountInfo: AccountInfo, fromHeight: Option[Long]): Future[Unit] = {
+
+    val publisher = poolPublisher(PoolName(accountInfo.poolName))
+
     daemonCache.withAccountAndWallet(accountInfo) {
       case (account, wallet) =>
         val pushOperationFuture = account.operationViewsFromHeight(0, Int.MaxValue, 1, fromHeight.getOrElse(0), wallet)
