@@ -137,7 +137,7 @@ lazy val root = (project in file("."))
       "io.circe"                     %% "circe-parser"           % versions.circe,
       "com.rabbitmq"                 %  "amqp-client"            % versions.rabbitmq,
       "com.typesafe.akka"            %% "akka-actor"             % versions.akka,
-
+      "com.typesafe.akka"            %% "akka-slf4j"             % versions.akka,
 
 // Tests dependencies
       "org.specs2"                   %% "specs2-mock"            % versions.specs2     % "it",
