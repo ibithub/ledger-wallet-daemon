@@ -273,6 +273,7 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
       if (currencyName == "tezos") {
         walletConfig.putString("TEZOS_XPUB_CURVE", "SECP256K1")
         walletConfig.putString("TEZOS_PROTOCOL_UPDATE", "TEZOS_PROTOCOL_UPDATE_BABYLON")
+        walletConfig.putString("TEZOS_COUNTER_STRATEGY", "OPTIMISTIC")
         val tezosNodeUrl = new URL(s"${DaemonConfiguration.TEZOS_NODE}")
         walletConfig.putString("TEZOS_NODE", s"${tezosNodeUrl.getProtocol}://${tezosNodeUrl.getHost}")
         walletConfig.putString("BLOCKCHAIN_EXPLORER_ENGINE", "TZSTATS_API")
