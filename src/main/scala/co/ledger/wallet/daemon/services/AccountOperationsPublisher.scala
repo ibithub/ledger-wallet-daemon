@@ -1,15 +1,20 @@
 package co.ledger.wallet.daemon.services
 
+import java.lang
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{Executors, ThreadFactory}
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.event.LoggingReceive
 import cats.data.OptionT
 import cats.implicits._
 import co.ledger.core._
+import co.ledger.core.implicits._
+import co.ledger.wallet.daemon.exceptions.ERC20NotFoundException
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Account.RichCoreAccount
 import co.ledger.wallet.daemon.models.Operations
 import co.ledger.wallet.daemon.models.Operations.OperationView
-import co.ledger.wallet.daemon.models.coins.EthereumTransactionView
 import co.ledger.wallet.daemon.services.AccountOperationsPublisher._
 
 import scala.collection.JavaConverters._
@@ -23,7 +28,7 @@ class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: Poo
   private val eventReceiver = new AccountOperationReceiver(self)
   private val accountInfo: String = s"$poolName/${wallet.getName}/${account.getIndex}"
 
-  private val operationsCountSubscribers : scala.collection.mutable.Set[ActorRef] = scala.collection.mutable.Set.empty[ActorRef]
+  private val operationsCountSubscribers: scala.collection.mutable.Set[ActorRef] = scala.collection.mutable.Set.empty[ActorRef]
 
   override def preStart(): Unit = {
     log.info(s"Actor $accountInfo is starting, Actor name=${self.path.name}")
@@ -46,16 +51,14 @@ class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: Poo
       })
     case s: SyncStatus => publisher.publishAccount(account, wallet, poolName.name, s)
 
-    case NewOperationEvent(opId) if account.isInstanceOfEthereumLikeAccount =>
-      updateOpreationsCount()
-      fetchOperationView(opId).fold(log.warning(s"operation not found: $opId"))(op => {
-        publisher.publishOperation(op, account, wallet, poolName.name)
-        publishERC20Operations(op)
-      })
+    case NewERC20OperationEvent(accUid, opId) =>
+      updateOperationsCount()
+      fetchErc20OperationView(accUid, opId)(AccountOperationContext.fetchEc).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishOperation(op, account, wallet, poolName.name))
 
     case NewOperationEvent(opId) =>
-      updateOpreationsCount()
-      fetchOperationView(opId).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishOperation(op, account, wallet, poolName.name))
+      updateOperationsCount()
+      fetchOperationView(opId)(AccountOperationContext.fetchEc).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishERC20Operation(op, account, wallet, poolName.name)
+      )
     case DeletedOperationEvent(opId) => publisher.publishDeletedOperation(opId.uid, account, wallet, poolName.name)
     case PublishOperation(op) => publisher.publishOperation(op, account, wallet, poolName.name)
   }
@@ -64,38 +67,24 @@ class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: Poo
 
   private def stopListeningEvents(account: Account): Unit = eventReceiver.stopListeningEvents(account.getEventBus)
 
-  private def fetchOperationView(id: OperationId): OptionT[Future, OperationView] = OptionT(account.operationView(id.uid, 1, wallet))
+  private def fetchOperationView(id: OperationId)(implicit ec: ExecutionContext): OptionT[Future, OperationView] = OptionT(account.operationView(id.uid, 1, wallet))
 
-  private def publishERC20Operations(operation: OperationView): Future[Unit] = {
-    Future {
-      val erc20Accounts = account.asEthereumLikeAccount().getERC20Accounts.asScala
-
-      def getOperationsFromContractAddress(contractAddress: String, txHash: String) = erc20Accounts
-        .find(_.getToken.getContractAddress.equalsIgnoreCase(contractAddress)).toSeq
-        .flatMap(_.getOperations.asScala.filter(_.getHash.equalsIgnoreCase(txHash)))
-
-      operation.transaction.map {
-        case tx: EthereumTransactionView =>
-          val senderOps = getOperationsFromContractAddress(tx.sender, tx.hash)
-          val receiverOps = getOperationsFromContractAddress(tx.receiver, tx.hash)
-          // Future.sequence(
-          val operations = (senderOps ++ receiverOps) // Do the order have a meaning ? If not, TODO: retrieve operations in one way
-            .map(erc20op => {
-              val erc20View = Operations.getErc20View(erc20op, operation)
-              publisher.publishERC20Operation(erc20View, account, wallet, poolName.name)
-              erc20op
-            })
-          log.debug(s"${operations.length} operation(s) published from $accountInfo")
-      }
+  private def fetchErc20OperationView(accUid: Erc20AccountUid, id: OperationId)(implicit ec: ExecutionContext): OptionT[Future, OperationView] = {
+    val op = account.asEthereumLikeAccount().getERC20Accounts.asScala.find(_.getUid == accUid.uid) match {
+      case Some(acc) =>
+        for {
+          erc20Op <- acc.getOperation(id.uid)
+          ethOp <- account.operationView(erc20Op.getETHOperationUid, 1, wallet)
+        } yield ethOp.map(o => Operations.getErc20View(erc20Op, o))
+      case None => Future.failed(ERC20NotFoundException(s"For erc20 account uid : ${accUid.uid} OperationUid : ${id.uid}"))
     }
+    OptionT(op)
   }
 
-  private def updateOpreationsCount() : Unit = {
+  private def updateOperationsCount(): Unit = {
     numberOfReceivedOperations += 1
-    operationsCountSubscribers.foreach( _ ! OperationsCount(numberOfReceivedOperations) )
+    operationsCountSubscribers.foreach(_ ! OperationsCount(numberOfReceivedOperations))
   }
-
-
 }
 
 object AccountOperationsPublisher {
@@ -104,7 +93,11 @@ object AccountOperationsPublisher {
 
   case class OperationId(uid: String) extends AnyVal
 
+  case class Erc20AccountUid(uid: String) extends AnyVal
+
   case class NewOperationEvent(uid: OperationId)
+
+  case class NewERC20OperationEvent(accUid: Erc20AccountUid, uid: OperationId)
 
   case class DeletedOperationEvent(uid: OperationId)
 
@@ -132,6 +125,11 @@ class AccountOperationReceiver(eventTarget: ActorRef) extends EventReceiver {
       val uid = event.getPayload.getString(Account.EV_NEW_OP_UID)
       eventTarget ! NewOperationEvent(OperationId(uid))
 
+    case EventCode.NEW_ERC20_OPERATION =>
+      val uid = event.getPayload.getString(Account.EV_NEW_OP_UID)
+      val accountUid = event.getPayload.getString(ERC20LikeAccount.EV_NEW_OP_ERC20_ACCOUNT_UID)
+      eventTarget ! NewERC20OperationEvent(Erc20AccountUid(accountUid), OperationId(uid))
+
     case EventCode.DELETED_OPERATION =>
       val uid = event.getPayload.getString(Account.EV_DELETED_OP_UID)
       eventTarget ! DeletedOperationEvent(OperationId(uid))
@@ -144,3 +142,11 @@ class AccountOperationReceiver(eventTarget: ActorRef) extends EventReceiver {
   def stopListeningEvents(bus: EventBus): Unit = bus.unsubscribe(this)
 }
 
+object AccountOperationContext {
+  implicit val fetchEc: ExecutionContextExecutor = ExecutionContext
+    .fromExecutorService(Executors.newFixedThreadPool(8, new ThreadFactory {
+      val thNumber: AtomicInteger = new AtomicInteger(0)
+
+      override def newThread(r: lang.Runnable): Thread = new Thread(r, "AccountPublisher-" + thNumber.incrementAndGet())
+    }))
+}

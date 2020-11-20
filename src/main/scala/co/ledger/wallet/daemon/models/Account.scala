@@ -100,6 +100,7 @@ object Account extends Logging {
     def createTransaction(transactionInfo: TransactionInfo, w: core.Wallet)(implicit ec: ExecutionContext): Future[TransactionView] =
       Account.createTransaction(transactionInfo, a, w)
 
+
     def operationView(uid: String, fullOp: Int, w: Wallet)(implicit ec: ExecutionContext): Future[Option[OperationView]] = Account.operationView(uid, fullOp, w, a)
 
     def operationViews(offset: Int, batch: Int, fullOp: Int, w: Wallet)(implicit ec: ExecutionContext): Future[Seq[OperationView]] =

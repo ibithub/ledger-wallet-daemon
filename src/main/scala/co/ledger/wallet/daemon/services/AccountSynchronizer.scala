@@ -1,7 +1,9 @@
 package co.ledger.wallet.daemon.services
 
+import java.lang
 import java.util.Date
-import java.util.concurrent.{ConcurrentHashMap, Executors}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{ConcurrentHashMap, Executors, ThreadFactory}
 
 import akka.actor.Status.Failure
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Timers}
@@ -43,7 +45,6 @@ class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, synchronize
 
   import com.twitter.util.Duration
 
-  // FIXME : ExecutionContext size
   implicit val synchronizationPool: ExecutionContextExecutorService = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(4 * Runtime.getRuntime.availableProcessors()))
 
   // When we start ASM, we register the existing accountsSuccess
@@ -81,7 +82,7 @@ class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, synchronize
 
   private def forceSync(synchronizer: ActorRef) = {
     implicit val timeout: Timeout = Timeout(60 seconds)
-    (ask(synchronizer, ForceSynchronization).mapTo[SyncStatus])
+    ask(synchronizer, ForceSynchronization).mapTo[SyncStatus]
   }
 
   def syncPool(poolInfo: PoolInfo): Future[Seq[SynchronizationResult]] =
@@ -199,7 +200,7 @@ class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, synchronize
     }
   }
 
-  private def synchronizationResult(accountInfo: AccountInfo)(syncStatus: SyncStatus) : SynchronizationResult = {
+  private def synchronizationResult(accountInfo: AccountInfo)(syncStatus: SyncStatus): SynchronizationResult = {
 
     val syncResult = SynchronizationResult(accountInfo.accountIndex, accountInfo.walletName, accountInfo.poolName, _)
 
@@ -226,7 +227,7 @@ class AccountSynchronizer(account: Account,
                           createPublisher: PublisherModule.OperationsPublisherFactory) extends Actor with Timers
   with ActorLogging {
 
-  implicit val ec: ExecutionContext = context.dispatcher
+  // implicit val ec: ExecutionContext = context.dispatcher
 
   private val walletName = wallet.getName
   private val accountInfo: String = s"$poolName/$walletName/${account.getIndex}"
@@ -248,7 +249,7 @@ class AccountSynchronizer(account: Account,
   def uninitialized(): Receive = {
     case Init => lastAccountBlockHeight.pipeTo(self)
     case h: BlockHeight => context become idle(lastHeightSeen = h)
-        self ! StartSynchronization
+      self ! StartSynchronization
     case StartSynchronization =>
     case GetStatus | ReSync => sender() ! Synced(0)
     case ForceSynchronization => sender() ! SynchronizationResult(account.getIndex, walletName, poolName, syncResult = false)
@@ -278,7 +279,7 @@ class AccountSynchronizer(account: Account,
       scheduleNextSync()
   }
 
-  private def synchronizing(fromHeight: BlockHeight) : Receive = {
+  private def synchronizing(fromHeight: BlockHeight): Receive = {
     case StartSynchronization => // no one is expecting a response. Only the AccountSynchronizer itself can send this message
     case GetStatus | ForceSynchronization => updatedSyncingStatus(fromHeight).pipeTo(sender())
     case ReSync => timers.startSingleTimer(StartSynchronization, ReSync, 3 seconds)
@@ -299,7 +300,7 @@ class AccountSynchronizer(account: Account,
       scheduleNextSync()
   }
 
-  private def resyncing(heightBeforeResync: BlockHeight, current: AccountOperationsPublisher.OperationsCount, target: SynchronizedOperationsCount) : Receive = {
+  private def resyncing(heightBeforeResync: BlockHeight, current: AccountOperationsPublisher.OperationsCount, target: SynchronizedOperationsCount): Receive = {
     case StartSynchronization => // no one is expecting a response. Only the AccountSynchronizer itself can send this message
     case GetStatus | ForceSynchronization => sender() ! Resyncing(targetOpCount = target.value, currentOpCount = current.count)
     case ReSync =>
@@ -336,11 +337,9 @@ class AccountSynchronizer(account: Account,
   }
 
   private def restartPublisher(): Unit = {
-
     if (operationPublisher != ActorRef.noSender) {
       operationPublisher ! PoisonPill
     }
-
     operationPublisher = createPublisher(this.context, account, wallet, PoolName(poolName))
   }
 
@@ -358,9 +357,8 @@ class AccountSynchronizer(account: Account,
 
 
   private def sync(): Future[SyncResult] = {
-
+    import AccountSynchronizer.ecSync
     log.info(s"SYNC : start syncing $accountInfo")
-
     account
       .sync(poolName, walletName)
       .flatMap { result =>
@@ -379,6 +377,11 @@ class AccountSynchronizer(account: Account,
 }
 
 object AccountSynchronizer {
+  implicit val ecSync: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(8, new ThreadFactory {
+    val thNumber = new AtomicInteger(0)
+
+    override def newThread(r: lang.Runnable): Thread = new Thread(r, "account-synchronizer-" + thNumber.incrementAndGet())
+  }))
 
   /**
     * Wipe all the data's account from the database then restart a Sync
