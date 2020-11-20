@@ -319,7 +319,7 @@ object Account extends Logging {
         tx.setSignature(signature)
         val signedRawTx = tx.serialize
         debug(s"transaction after sign '${HexUtils.valueOf(signedRawTx)}'")
-        a.asTezosLikeAccount().broadcastRawTransaction(signedRawTx)
+        a.asTezosLikeAccount().broadcastTransaction(tx)
 
       case Left(m) => Future.failed(new UnsupportedOperationException(s"Account type not supported, can't broadcast XTZ transaction: $m"))
     }
@@ -480,6 +480,15 @@ object Account extends Logging {
     val currency = w.getCurrency
     val feeMethod = ti.feesSpeedLevel.getOrElse(FeeMethod.SLOW)
 
+    // Various transaction types : transaction / wipe to address / delegate / undelegate
+    // The code below is only good for "transaction" type (i.e. send/receive)
+    if (ti.wipeToAddress) {
+      builder.wipeToAddress(ti.recipient)
+    } else {
+      val amount = currency.convertAmount(ti.amount)
+      builder.sendToAddress(amount, ti.recipient)
+    }
+
     for {
       // TODO set the correct fees value
       baseFee <- ti.fees match {
@@ -505,17 +514,6 @@ object Account extends Logging {
       _ = builder.setStorageLimit(storageLimit.asCoreBigInt)
 
       _ = builder.setType(ti.operationType)
-      // Various transaction types : transaction / wipe to address / delegate / undelegate
-      // The code below is only good for "transaction" type (i.e. send/receive)
-      recipient = ti.recipient
-
-      _ = if (ti.wipeToAddress) {
-        builder.wipeToAddress(recipient)
-      } else {
-        val amount = currency.convertAmount(ti.amount)
-        builder.sendToAddress(amount, recipient)
-      }
-
       // build and parse as unsigned tx view
       // libcore is responsible for creating/injecting the reveal operation if necessary
       // FIXME so what happens when there are multiple operations in the builder's result ?
