@@ -296,7 +296,7 @@ class AccountSynchronizer(account: Account,
       scheduleNextSync()
 
     case Failure(t) => context become idle(lastHeightSeen = fromHeight)
-      log.error(t, s"An error occurred synchronizing account $accountInfo  from $fromHeight")
+      log.error(t, s"#Sync : An error occurred synchronizing account $accountInfo  from $fromHeight")
       scheduleNextSync()
   }
 
@@ -319,7 +319,7 @@ class AccountSynchronizer(account: Account,
       sync().pipeTo(self)
 
     case Failure(t) => context become idle(lastHeightSeen = heightBeforeResync)
-      log.error(t, s"An error occurred resyncing account $accountInfo (${current.count} / ${target.value} ops)")
+      log.error(t, s"#Sync : An error occurred resyncing account $accountInfo (${current.count} / ${target.value} ops)")
       scheduleNextSync()
   }
 
@@ -348,25 +348,25 @@ class AccountSynchronizer(account: Account,
     */
   private def wipeAllOperations() = for {
     lastKnownOperationsCount <- account.operationCounts.map(_.values.sum)
-    _ = log.info(s"Resync : erased all the operations of account $accountInfo")
+    _ = log.info(s"#Sync : erased all the operations of account $accountInfo, last known op count $lastKnownOperationsCount")
     errorCode <- account.eraseDataSince(new Date(0))
   } yield {
-    log.info(s"account $accountInfo libcore wipe ended (errorCode : $errorCode ")
+    log.info(s"#Sync : account $accountInfo libcore wipe ended (errorCode : $errorCode ")
     SynchronizedOperationsCount(lastKnownOperationsCount)
   }
 
 
   private def sync(): Future[SyncResult] = {
     import AccountSynchronizer.ecSync
-    log.info(s"SYNC : start syncing $accountInfo")
+    log.info(s"#Sync : start syncing $accountInfo")
     account
       .sync(poolName, walletName)
       .flatMap { result =>
         if (result.syncResult) {
-          log.info(s"SYNC : $accountInfo has been synced : $result")
+          log.info(s"#Sync : $accountInfo has been synced : $result")
           lastAccountBlockHeight.map(SyncSuccess)
         } else {
-          Future.successful(SyncFailure(s"Lib core failed to sync the account $accountInfo"))
+          Future.successful(SyncFailure(s"#Sync : Lib core failed to sync the account $accountInfo"))
         }
       }
       .recoverWith { case NonFatal(t) =>
