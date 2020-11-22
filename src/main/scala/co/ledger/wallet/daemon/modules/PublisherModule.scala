@@ -35,7 +35,11 @@ object PublisherModule extends TwitterModule with Logging {
   @Provides
   @Singleton
   def provides(publisher: Publisher): OperationsPublisherFactory = { (factory, a, w, pn) =>
-    factory.actorOf(AccountOperationsPublisher.props(a, w, pn, publisher))
+    factory.actorOf(AccountOperationsPublisher
+      .props(a, w, pn, publisher)
+      .withDispatcher(SynchronizationDispatcher.configurationKey(SynchronizationDispatcher.Publisher)),
+      name = AccountOperationsPublisher.name(a, w, pn)
+    )
   }
 
 }

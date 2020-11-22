@@ -1,8 +1,9 @@
 package co.ledger.wallet.daemon.clients
 
-import java.util.concurrent.{Executors, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{Executors, LinkedBlockingDeque, ThreadPoolExecutor, TimeUnit}
 
-import co.ledger.wallet.daemon.libledger_core.async.{LedgerCoreExecutionContext, ScalaThreadDispatcher}
+import co.ledger.wallet.daemon.libledger_core.async.{LedgerCoreExecutionContext, LogOnlyPolicy, ScalaThreadDispatcher}
+import com.twitter.concurrent.NamedPoolThreadFactory
 
 import scala.concurrent.ExecutionContext
 
@@ -11,7 +12,10 @@ object ClientFactory {
   lazy val httpCoreClient = new HttpCoreClientPool(LedgerCoreExecutionContext.httpPool, new ScalaHttpClientPool)
 
   lazy val threadDispatcher = new ScalaThreadDispatcher(
-    ExecutionContext.fromExecutor(new ThreadPoolExecutor(Runtime.getRuntime.availableProcessors() * 4, Runtime.getRuntime.availableProcessors() * 8, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue[Runnable], (r: Runnable) => new Thread(r, "libcore-thread-dispatcher")))
+    ExecutionContext.fromExecutorService(new ThreadPoolExecutor(4, 4, 60L, TimeUnit.SECONDS,
+      new LinkedBlockingDeque[Runnable](100000),
+      new NamedPoolThreadFactory("ThreadDispatcher-CorePool"),
+      new LogOnlyPolicy("ThreadDispatcher-CorePool")))
   )
 
   lazy val apiClient: ApiClient = new ApiClient()(

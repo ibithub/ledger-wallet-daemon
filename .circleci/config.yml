@@ -214,7 +214,7 @@ jobs:
           command: |
             # look like the loop does not work
             # sleep 30 was not enough for the wd to be up
-            sleep 60
+            sleep 90
             status=$(curl http://0.0.0.0:9200/_health -w "%{http_code}\n" -o junk 2> /dev/null)
             case $status in
               000) echo "Wallet daemon not ready yet. Retry 30 seconds later" ;;
