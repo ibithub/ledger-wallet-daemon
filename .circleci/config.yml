@@ -212,15 +212,15 @@ jobs:
       - run:
           name: Check wallet-daemon service
           command: |
-            for try in {1..10}; do
-              sleep 30
-              status=$(curl http://0.0.0.0:9200/_health -w "%{http_code}\n" -o junk 2> /dev/null)
-              case $status in
-                000) echo "Wallet daemon not ready yet. Retry 30 seconds later" ;;
-                200) echo "Wallet daemon service is up !"; break ;;
-                  *) echo "Wallet daemon returns status $status (GET http://0.0.0.0:9200/_health)." ; exit 1 ;;
-              esac
-            done
+            # look like the loop does not work
+            # sleep 30 was not enough for the wd to be up
+            sleep 60
+            status=$(curl http://0.0.0.0:9200/_health -w "%{http_code}\n" -o junk 2> /dev/null)
+            case $status in
+              000) echo "Wallet daemon not ready yet. Retry 30 seconds later" ;;
+              200) echo "Wallet daemon service is up !"; break ;;
+                *) echo "Wallet daemon returns status $status (GET http://0.0.0.0:9200/_health)." ; exit 1 ;;
+            esac
 
 workflows:
   build_test_and_publish:

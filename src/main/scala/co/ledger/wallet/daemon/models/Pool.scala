@@ -279,7 +279,7 @@ object Pool extends Logging {
     val poolConfig = core.DynamicObject.newInstance()
     val builder = core.WalletPoolBuilder.createInstance()
 
-    Try(config.getString("core_database_engine")).toOption.getOrElse("sqlite3") match {
+    Try(config.getString("core.core_database_engine")).toOption.getOrElse("sqlite3") match {
       case "postgres" =>
         info("Using PostgreSql as core database engine")
         val dbName = for {
