@@ -4,21 +4,15 @@ import co.ledger.core._
 import co.ledger.wallet.daemon.database.OperationCache
 import com.twitter.inject.Logging
 
-import scala.util.{Failure, Success, Try}
 
 class NewOperationEventReceiver(poolId: Long, opsCache: OperationCache) extends EventReceiver with Logging {
   private val self = this
 
-  override def onEvent(event: Event): Unit =
-    if (event.getCode == EventCode.NEW_OPERATION) {
-      Try(opsCache.updateOffset(
-        poolId,
-        event.getPayload.getString(Account.EV_NEW_OP_WALLET_NAME),
-        event.getPayload.getInt(Account.EV_NEW_OP_ACCOUNT_INDEX))) match {
-        case Success(_) => // Do nothing
-        case Failure(e) => error("Failed to update offset with exception", e)
-      }
+  override def onEvent(event: Event): Unit = {
+    if (poolId == opsCache.hashCode()) {
+      event.isSticky
     }
+  }
 
   private def canEqual(a: Any): Boolean = a.isInstanceOf[NewOperationEventReceiver]
 

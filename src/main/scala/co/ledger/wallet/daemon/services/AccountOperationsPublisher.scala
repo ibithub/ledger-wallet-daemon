@@ -120,21 +120,7 @@ object AccountOperationsPublisher {
 class AccountOperationReceiver(eventTarget: ActorRef) extends EventReceiver {
 
   override def onEvent(event: Event): Unit = event.getCode match {
-
-    case EventCode.NEW_OPERATION =>
-      val uid = event.getPayload.getString(Account.EV_NEW_OP_UID)
-      eventTarget ! NewOperationEvent(OperationId(uid))
-
-    case EventCode.NEW_ERC20_OPERATION =>
-      val uid = event.getPayload.getString(Account.EV_NEW_OP_UID)
-      val accountUid = event.getPayload.getString(ERC20LikeAccount.EV_NEW_OP_ERC20_ACCOUNT_UID)
-      eventTarget ! NewERC20OperationEvent(Erc20AccountUid(accountUid), OperationId(uid))
-
-    case EventCode.DELETED_OPERATION =>
-      val uid = event.getPayload.getString(Account.EV_DELETED_OP_UID)
-      eventTarget ! DeletedOperationEvent(OperationId(uid))
-
-    case _ =>
+    case _ => eventTarget.path
   }
 
   def listenEvents(bus: EventBus)(implicit ec: ExecutionContext): Unit = bus.subscribe(LedgerCoreExecutionContext(ec), this)
