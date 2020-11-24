@@ -1,8 +1,8 @@
 package co.ledger.wallet.daemon.database.core.operations
 
-import co.ledger.core.Wallet
+import co.ledger.core.{Account, Wallet}
 import co.ledger.wallet.daemon.database.core.Database
-import co.ledger.wallet.daemon.models.{AccountInfo, Operations}
+import co.ledger.wallet.daemon.models.Operations
 import com.twitter.inject.Logging
 import com.twitter.util.Future
 
@@ -13,7 +13,7 @@ class EthereumDao(db: Database) extends CoinDao with Logging {
   /**
     * List operations from an account
     */
-  override def listAllOperations(a: AccountInfo, w: Wallet, offset: Int, limit: Int): Future[Seq[Operations.OperationView]] = {
+  override def listAllOperations(a: Account, w: Wallet, offset: Int, limit: Int): Future[Seq[Operations.OperationView]] = {
     Future {
       Seq.empty
     }
@@ -22,7 +22,7 @@ class EthereumDao(db: Database) extends CoinDao with Logging {
   /**
     * Find Operation
     */
-  override def findOperationByUid(a: AccountInfo, w: Wallet, uid: OperationUid, offset: Int, limit: Int): Future[Option[Operations.OperationView]] = {
+  override def findOperationByUid(a: Account, w: Wallet, uid: OperationUid, offset: Int, limit: Int): Future[Option[Operations.OperationView]] = {
     Future {
       None
     }
@@ -31,7 +31,7 @@ class EthereumDao(db: Database) extends CoinDao with Logging {
   /**
     * List operations from an account filtered by Uids
     */
-  override def listOperationsByUids(a: AccountInfo, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[Operations.OperationView]] = {
+  override def listOperationsByUids(a: Account, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[Operations.OperationView]] = {
     Future {
       Seq.empty
     }

@@ -1,9 +1,8 @@
 package co.ledger.wallet.daemon.database.core
 
-import co.ledger.core.{Wallet, WalletType}
+import co.ledger.core.{Account, Wallet, WalletType}
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
-import co.ledger.wallet.daemon.database.core.operations.{BitcoinDao, CoinDao, EthereumDao, RippleDao, StellarDao}
-import co.ledger.wallet.daemon.models.AccountInfo
+import co.ledger.wallet.daemon.database.core.operations._
 import co.ledger.wallet.daemon.models.Operations.OperationView
 import com.twitter.inject.Logging
 import com.twitter.util.Future
@@ -21,19 +20,19 @@ class WalletPoolDao(poolName: String)(implicit val ec: ExecutionContext) extends
   /**
     * List operations from an account
     */
-  override def listAllOperations(a: AccountInfo, w: Wallet, offset: Int, limit: Int): Future[Seq[OperationView]] =
+  override def listAllOperations(a: Account, w: Wallet, offset: Int, limit: Int): Future[Seq[OperationView]] =
     daoForWalletType(w.getWalletType).listAllOperations(a, w, offset, limit)
 
   /**
     * Find Operation
     */
-  override def findOperationByUid(a: AccountInfo, w: Wallet, uid: OperationUid, offset: Int, limit: Int): Future[Option[OperationView]] =
+  override def findOperationByUid(a: Account, w: Wallet, uid: OperationUid, offset: Int, limit: Int): Future[Option[OperationView]] =
     daoForWalletType(w.getWalletType).findOperationByUid(a, w, uid, offset, limit)
 
   /**
     * List operations from an account filtered by Uids
     */
-  override def listOperationsByUids(a: AccountInfo, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[OperationView]] =
+  override def listOperationsByUids(a: Account, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[OperationView]] =
     daoForWalletType(w.getWalletType).listOperationsByUids(a, w, filteredUids, offset, limit)
 
   def daoForWalletType(wt: WalletType): CoinDao = wt match {
