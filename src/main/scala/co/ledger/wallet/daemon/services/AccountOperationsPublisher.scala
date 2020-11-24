@@ -1,28 +1,32 @@
 package co.ledger.wallet.daemon.services
 
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.event.LoggingReceive
 import cats.data.OptionT
 import cats.implicits._
 import co.ledger.core._
 import co.ledger.core.implicits._
+import co.ledger.wallet.daemon.database.core.WalletPoolDao
 import co.ledger.wallet.daemon.exceptions.ERC20NotFoundException
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Account.RichCoreAccount
-import co.ledger.wallet.daemon.models.Operations
 import co.ledger.wallet.daemon.models.Operations.OperationView
+import co.ledger.wallet.daemon.models.{AccountInfo, Operations}
 import co.ledger.wallet.daemon.services.AccountOperationsPublisher._
 import co.ledger.wallet.daemon.utils.AkkaUtils
+import co.ledger.wallet.daemon.utils.Utils._
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future => ScalaFuture}
 
 class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: PoolName, publisher: Publisher) extends Actor with ActorLogging {
 
   private var numberOfReceivedOperations: Int = 0
 
-  implicit val dispatcher : ExecutionContextExecutor = context.dispatcher
-  val lookupDispatcher : ExecutionContextExecutor = context.system.dispatchers.lookup(SynchronizationDispatcher.configurationKey(SynchronizationDispatcher.LibcoreLookup))
+  implicit val dispatcher: ExecutionContextExecutor = context.dispatcher
+  val lookupDispatcher: ExecutionContextExecutor = context.system.dispatchers.lookup(SynchronizationDispatcher.configurationKey(SynchronizationDispatcher.LibcoreLookup))
+  private val walletPoolDao = WalletPoolDao(poolName.name)
   private val eventReceiver = new AccountOperationReceiver(self)
   private val accountInfo: String = s"$poolName/${wallet.getName}/${account.getIndex}"
 
@@ -55,8 +59,7 @@ class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: Poo
 
     case NewOperationEvent(opId) =>
       updateOperationsCount()
-      fetchOperationView(opId).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishERC20Operation(op, account, wallet, poolName.name)
-      )
+      fetchOperationView(opId).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishERC20Operation(op, account, wallet, poolName.name))
     case DeletedOperationEvent(opId) => publisher.publishDeletedOperation(opId.uid, account, wallet, poolName.name)
     case PublishOperation(op) => publisher.publishOperation(op, account, wallet, poolName.name)
   }
@@ -65,16 +68,17 @@ class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: Poo
 
   private def stopListeningEvents(account: Account): Unit = eventReceiver.stopListeningEvents(account.getEventBus)
 
-  private def fetchOperationView(id: OperationId): OptionT[Future, OperationView] = OptionT(account.operationView(id.uid, 1, wallet)(lookupDispatcher))
+  private def fetchOperationView(id: OperationId): OptionT[ScalaFuture, OperationView] =
+    OptionT(walletPoolDao.findOperationByUid(AccountInfo(account.getIndex, wallet.getName, poolName.name), wallet, id.uid, 0, Int.MaxValue).asScala())
 
-  private def fetchErc20OperationView(accUid: Erc20AccountUid, id: OperationId): OptionT[Future, OperationView] = {
+  private def fetchErc20OperationView(accUid: Erc20AccountUid, id: OperationId)(implicit ec: ExecutionContext): OptionT[ScalaFuture, OperationView] = {
     val op = account.asEthereumLikeAccount().getERC20Accounts.asScala.find(_.getUid == accUid.uid) match {
       case Some(acc) =>
         for {
           erc20Op <- acc.getOperation(id.uid) // which execution context ?
           ethOp <- account.operationView(erc20Op.getETHOperationUid, 1, wallet)(lookupDispatcher)
         } yield ethOp.map(o => Operations.getErc20View(erc20Op, o))
-      case None => Future.failed(ERC20NotFoundException(s"For erc20 account uid : ${accUid.uid} OperationUid : ${id.uid}"))
+      case None => ScalaFuture.failed(ERC20NotFoundException(s"For erc20 account uid : ${accUid.uid} OperationUid : ${id.uid}"))
     }
     OptionT(op)
   }

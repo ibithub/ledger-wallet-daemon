@@ -123,6 +123,7 @@ lazy val root = (project in file("."))
       "org.typelevel"                %% "cats-core"              % versions.cats,
       "com.twitter"                  %% "finatra-http"           % versions.finatra,
       "com.twitter"                  %% "finatra-jackson"        % versions.finatra,
+      "io.github.finagle"            %% "finagle-postgres"       % "0.12.0",
       "com.h2database"               %  "h2"                     % versions.h2,
       "ch.qos.logback"               %  "logback-classic"        % versions.logback,
       "org.postgresql"               %  "postgresql"             % versions.postgres,

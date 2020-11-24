@@ -100,13 +100,13 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
 
   def getUtxo(accountInfo: AccountInfo, offset: Int, batch: Int): Future[(List[UTXOView], Int)] = checkSyncStatus(accountInfo) {
 
-      daemonCache.withAccountAndWallet(accountInfo) { (account, wallet) =>
-        for {
-          lastBlockHeight <- wallet.lastBlockHeight
-          count <- account.getUtxoCount
-          utxos <- account.getUtxo(lastBlockHeight, offset, batch)
-        } yield (utxos, count)
-      }
+    daemonCache.withAccountAndWallet(accountInfo) { (account, wallet) =>
+      for {
+        lastBlockHeight <- wallet.lastBlockHeight
+        count <- account.getUtxoCount
+        utxos <- account.getUtxo(lastBlockHeight, offset, batch)
+      } yield (utxos, count)
+    }
   }
 
   private def loadBalance(contract: Option[String], accountInfo: AccountInfo): Future[BigInt] = checkSyncStatus(accountInfo) {
@@ -300,7 +300,7 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
     }
   }
 
-  private def checkSyncStatus[T](account: AccountInfo)(block: => Future[T]) : Future[T] = {
+  private def checkSyncStatus[T](account: AccountInfo)(block: => Future[T]): Future[T] = {
     val status = synchronizerManager.getSyncStatus(account)
     status
       .flatMap {
@@ -308,7 +308,7 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
         case None => Future.failed(AccountNotFoundException(account.accountIndex))
         case _ => Future.successful(())
       }
-      .flatMap( _ => block)
+      .flatMap(_ => block)
   }
 }
 

@@ -145,6 +145,16 @@ object DaemonConfiguration extends Logging {
       1000
     }
 
+  val coreDbConfig = (for {
+    dbPort <- Try(config.getString("postgres.port"))
+    dbHost <- Try(config.getString("postgres.host"))
+    dbUserName <- Try(config.getString("postgres.username"))
+    dbPwd <- Try(config.getString("postgres.password"))
+    dbPrefix <- Try(config.getString("postgres.core.db_name_prefix"))
+    maxCnx <- Try(config.getInt("postgres.core.pool_size"))
+  } yield CoreDbConfig(dbHost, dbPort, dbUserName, dbPwd, dbPrefix, maxCnx ))
+    .get // We have to fail fast if configuration is missing
+
   // The core pool operation size
   val corePoolOpSizeFactor: Int =
     if (config.hasPath("core.ops_threads_factor")) {
@@ -253,4 +263,5 @@ object DaemonConfiguration extends Logging {
 
   case class SynchronizationConfig(delay: Int, frequency: Int)
 
+  case class CoreDbConfig(dbHost: String, dbPort: String, dbUserName: String, dbPwd: String, dbPrefix: String, cnxPoolSize: Int)
 }
