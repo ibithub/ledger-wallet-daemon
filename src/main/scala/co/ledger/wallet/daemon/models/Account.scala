@@ -489,12 +489,13 @@ object Account extends Logging {
     val feeMethod = ti.feesSpeedLevel.getOrElse(FeeMethod.SLOW)
 
     // Various transaction types : transaction / wipe to address / delegate / undelegate
-    // The code below is only good for "transaction" type (i.e. send/receive)
-    if (ti.wipeToAddress) {
-      builder.wipeToAddress(ti.recipient)
-    } else {
-      val amount = currency.convertAmount(ti.amount)
-      builder.sendToAddress(amount, ti.recipient)
+    if (!(ti.recipient.isEmpty && ti.operationType == TezosOperationTag.OPERATION_TAG_DELEGATION)) {
+      if (ti.wipeToAddress) {
+        builder.wipeToAddress(ti.recipient)
+      } else {
+        val amount = currency.convertAmount(ti.amount)
+        builder.sendToAddress(amount, ti.recipient)
+      }
     }
 
     for {
