@@ -60,6 +60,9 @@ postgres = {
     # If this variable is overridden, db_name, hosts and user credential will be ignored
     url = "jdbc:postgresql://"${postgres.host}":"${postgres.port}"/"${postgres.wallet_daemon.db_name}"?user="${postgres.username}"&password="${postgres.password}
     url = ${?WALLET_JDBC_URL}
+    maxConnections = 3
+    minConnections = 0
+    numThreads = 3
 }
 
 # rabbitMQ uri in the format of 'amqp://user:pass@host:port'
