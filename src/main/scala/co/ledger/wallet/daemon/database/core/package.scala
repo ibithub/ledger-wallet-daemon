@@ -25,6 +25,7 @@ package object core {
       },
       (b, c) => Try(parseDate(Buffers.readString(b, c)))
     )
+
   }
 
   object Ordering {

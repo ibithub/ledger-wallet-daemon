@@ -8,6 +8,8 @@ import com.twitter.util.Future
 trait CoinDao {
   type OperationUid = String
 
+  type TransactionUid = String
+
   /**
     * List operations from an account
     */

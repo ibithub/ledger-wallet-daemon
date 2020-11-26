@@ -6,18 +6,13 @@ import akka.event.LoggingReceive
 import cats.data.OptionT
 import cats.implicits._
 import co.ledger.core._
-import co.ledger.core.implicits._
 import co.ledger.wallet.daemon.database.core.WalletPoolDao
-import co.ledger.wallet.daemon.exceptions.ERC20NotFoundException
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
-import co.ledger.wallet.daemon.models.Account.RichCoreAccount
-import co.ledger.wallet.daemon.models.Operations
 import co.ledger.wallet.daemon.models.Operations.OperationView
 import co.ledger.wallet.daemon.services.AccountOperationsPublisher._
 import co.ledger.wallet.daemon.utils.AkkaUtils
 import co.ledger.wallet.daemon.utils.Utils._
 
-import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future => ScalaFuture}
 
 class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: PoolName, publisher: Publisher) extends Actor with ActorLogging {
@@ -46,20 +41,17 @@ class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: Poo
 
   override def receive: Receive = LoggingReceive {
     case SubscribeToOperationsCount(subscriber) => operationsCountSubscribers.add(subscriber)
-
     case s: SyncStatus if account.isInstanceOfEthereumLikeAccount =>
       publisher.publishAccount(account, wallet, poolName.name, s).flatMap(_ => {
         publisher.publishERC20Accounts(account, wallet, poolName.name, s)
       })
     case s: SyncStatus => publisher.publishAccount(account, wallet, poolName.name, s)
-
-    case NewERC20OperationEvent(accUid, opId) =>
+    case NewERC20OperationEvent(_, opId) =>
       updateOperationsCount()
-      fetchErc20OperationView(accUid, opId).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishOperation(op, account, wallet, poolName.name))
-
+      fetchErc20OperationView(opId).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishERC20Operation(op, account, wallet, poolName.name))
     case NewOperationEvent(opId) =>
       updateOperationsCount()
-      fetchOperationView(opId).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishERC20Operation(op, account, wallet, poolName.name))
+      fetchOperationView(opId).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishOperation(op, account, wallet, poolName.name))
     case DeletedOperationEvent(opId) => publisher.publishDeletedOperation(opId.uid, account, wallet, poolName.name)
     case PublishOperation(op) => publisher.publishOperation(op, account, wallet, poolName.name)
   }
@@ -71,17 +63,9 @@ class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: Poo
   private def fetchOperationView(id: OperationId): OptionT[ScalaFuture, OperationView] =
     OptionT(walletPoolDao.findOperationByUid(account, wallet, id.uid, 0, Int.MaxValue).asScala())
 
-  private def fetchErc20OperationView(accUid: Erc20AccountUid, id: OperationId)(implicit ec: ExecutionContext): OptionT[ScalaFuture, OperationView] = {
-    val op = account.asEthereumLikeAccount().getERC20Accounts.asScala.find(_.getUid == accUid.uid) match {
-      case Some(acc) =>
-        for {
-          erc20Op <- acc.getOperation(id.uid) // which execution context ?
-          ethOp <- account.operationView(erc20Op.getETHOperationUid, 1, wallet)(lookupDispatcher)
-        } yield ethOp.map(o => Operations.getErc20View(erc20Op, o))
-      case None => ScalaFuture.failed(ERC20NotFoundException(s"For erc20 account uid : ${accUid.uid} OperationUid : ${id.uid}"))
-    }
-    OptionT(op)
-  }
+  private def fetchErc20OperationView(erc20op: OperationId): OptionT[ScalaFuture, OperationView] =
+    OptionT(walletPoolDao.findERC20OperationByUid(account, wallet, erc20op.uid).asScala())
+
 
   private def updateOperationsCount(): Unit = {
     numberOfReceivedOperations += 1

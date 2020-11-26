@@ -22,7 +22,7 @@ class WalletPoolDAOTest extends AssertionsForJUnit with Logging {
   NativeLibLoader.loadLibs()
 
   val xpubBtc1: String = "xpub6D4waFVPfPCpefXd5Rwb9TRuhoW7WZfYTS4cjv6Cw7ZBvFURHFFVYV2GF8hD36r31iDwBuP71TAEmy9596SnA7Hi6bgCLo6DYb7UUVqWWPA"
-  val xpubEth1: String = "XPUBFORETH"
+  val xpubEth1: String = "XPUBETHsrc/main/scala/co/ledger/wallet/daemon/database/core/operations/EthereumDao.scala"
   val daemonCache: DaemonCache = new DefaultDaemonCache()
   val poolName = "walletpooldao"
   val pool: Pool = Await.result(daemonCache.createWalletPool(PoolInfo(poolName), ""), Duration.Inf) // Pool.newPoolInstance(PoolDto(poolName, "", Some(1))).get
@@ -100,7 +100,14 @@ class WalletPoolDAOTest extends AssertionsForJUnit with Logging {
     assert(filteredOperations.size == 3)
 
     // Expect 2 ERC20 operations
-    assert(allOperations.count(_.transaction.exists(_.asInstanceOf[EthereumTransactionView].erc20.isDefined)) == 2)
+    val erc20OperationViews = allOperations.filter(_.transaction.exists(_.asInstanceOf[EthereumTransactionView].erc20.isDefined))
+    assert(erc20OperationViews.size == 2)
+
+    val erc20OpUids = Seq("0cb747196f93c1f0f2503b0c2e5c484602d226b9b642b35c1f126e5aa9451c6d", "4b6a47c302787c5e514d56126572dc76c07d3385285295d3cda7348766067c77")
+    val erc20ByUids = TwitterAwait.result(poolDao.findERC20OperationsByUids(account, wallet, erc20OpUids, 0, Int.MaxValue))
+
+    assert(erc20ByUids.size == 2)
+    assert(erc20ByUids.map(_.uid).toSet == erc20OperationViews.map(_.uid).toSet)
   }
 
 }

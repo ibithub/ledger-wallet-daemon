@@ -37,9 +37,13 @@ case class RippleTransactionView(@JsonProperty("hash") hash: String,
                                  @JsonProperty("sequence") sequence: String,
                                  @JsonProperty("ledger_sequence") ledgerSequence: String,
                                  @JsonProperty("signing_pub_key") signingPubKey: String,
-                                 @JsonProperty("memos") memos: List[RippleLikeMemo],
+                                 @JsonProperty("memos") memos: List[RippleMemoView],
                                  @JsonProperty("destination_tag") destinationTag: Long
                                 ) extends TransactionView
+
+case class RippleMemoView(@JsonProperty("data") data: String,
+                          @JsonProperty("fmt") fmt: String,
+                          @JsonProperty("ty") ty: String)
 
 object RippleTransactionView {
   def apply(tx: RippleLikeTransaction): RippleTransactionView = {
@@ -54,7 +58,7 @@ object RippleTransactionView {
       tx.getSequence.toString(10),
       tx.getLedgerSequence.toString(10),
       HexUtils.valueOf(tx.getSigningPubKey),
-      tx.getMemos.asScala.toList,
+      tx.getMemos.asScala.toList.map(m => RippleMemoView(m.getData, m.getFmt, m.getTy)),
       tx.getDestinationTag
     )
   }

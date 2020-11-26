@@ -1,6 +1,7 @@
 package co.ledger.wallet.daemon.database.core
 
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration.CoreDbConfig
+import co.ledger.wallet.daemon.database.core.Database.SQLQuery
 import com.twitter.finagle.Postgres
 import com.twitter.finagle.postgres.{PostgresClientImpl, Row}
 import com.twitter.inject.Logging
@@ -9,7 +10,7 @@ import com.twitter.util.Future
 class Database(config: CoreDbConfig, poolName: String) extends Logging {
   val client: PostgresClientImpl = connectionPool
 
-  def executeQuery[T](query: String)(f: Row => T): Future[Seq[T]] = {
+  def executeQuery[T](query: SQLQuery)(f: Row => T): Future[Seq[T]] = {
     logger.info(s"SQL EXECUTION : $query")
     client.select[T](query)(f)
   }
@@ -24,4 +25,8 @@ class Database(config: CoreDbConfig, poolName: String) extends Logging {
     .newRichClient(s"${config.dbHost}:${config.dbPort}")
 
   def close(): Future[Unit] = client.close()
+}
+
+object Database {
+  type SQLQuery = String
 }
