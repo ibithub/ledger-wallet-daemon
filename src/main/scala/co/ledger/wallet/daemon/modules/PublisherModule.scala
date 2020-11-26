@@ -3,6 +3,7 @@ package co.ledger.wallet.daemon.modules
 import akka.actor.{ActorRef, ActorRefFactory, ActorSystem}
 import co.ledger.core.{Account, Wallet}
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
+import co.ledger.wallet.daemon.database.DaemonCache
 import co.ledger.wallet.daemon.services.AccountOperationsPublisher.PoolName
 import co.ledger.wallet.daemon.services._
 import com.google.inject.Provides
@@ -12,7 +13,7 @@ import javax.inject.Singleton
 import scala.util.{Failure, Success}
 
 object PublisherModule extends TwitterModule with Logging {
-  type OperationsPublisherFactory = (ActorRefFactory, Account, Wallet, PoolName) => ActorRef
+  type OperationsPublisherFactory = (ActorRefFactory, DaemonCache, Account, Wallet, PoolName) => ActorRef
 
   @Singleton
   @Provides
@@ -34,12 +35,10 @@ object PublisherModule extends TwitterModule with Logging {
 
   @Provides
   @Singleton
-  def provides(publisher: Publisher): OperationsPublisherFactory = { (factory, a, w, pn) =>
+  def provides(publisher: Publisher): OperationsPublisherFactory = { (factory, cache, a, w, pn) =>
     factory.actorOf(AccountOperationsPublisher
-      .props(a, w, pn, publisher)
+      .props(cache, a, w, pn, publisher)
       .withDispatcher(SynchronizationDispatcher.configurationKey(SynchronizationDispatcher.Publisher)),
-      name = AccountOperationsPublisher.name(a, w, pn)
-    )
+      name = AccountOperationsPublisher.name(a, w, pn))
   }
-
 }

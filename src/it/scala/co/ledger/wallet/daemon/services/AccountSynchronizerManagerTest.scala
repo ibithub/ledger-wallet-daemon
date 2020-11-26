@@ -44,7 +44,7 @@ class AccountSynchronizerManagerTest extends FlatSpec with MockitoSugar with Def
 
     var numberOfSynchronizerCreated = 0
 
-    Await.result(new AccountSynchronizerManager(defaultDaemonCache, { (_, _, _) =>
+    Await.result(new AccountSynchronizerManager(defaultDaemonCache, { (_, _, _, _) =>
       numberOfSynchronizerCreated += 1
       mock[ActorRef]
     }, mock[Timer]).start(), 1.minute)

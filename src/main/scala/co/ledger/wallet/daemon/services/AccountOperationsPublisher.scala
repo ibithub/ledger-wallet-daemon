@@ -6,22 +6,25 @@ import akka.event.LoggingReceive
 import cats.data.OptionT
 import cats.implicits._
 import co.ledger.core._
-import co.ledger.wallet.daemon.database.core.WalletPoolDao
+import co.ledger.wallet.daemon.database.DaemonCache
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Operations.OperationView
+import co.ledger.wallet.daemon.models.PoolInfo
 import co.ledger.wallet.daemon.services.AccountOperationsPublisher._
 import co.ledger.wallet.daemon.utils.AkkaUtils
 import co.ledger.wallet.daemon.utils.Utils._
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future => ScalaFuture}
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future => ScalaFuture}
 
-class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: PoolName, publisher: Publisher) extends Actor with ActorLogging {
+class AccountOperationsPublisher(daemonCache: DaemonCache, account: Account, wallet: Wallet, poolName: PoolName, publisher: Publisher) extends Actor with ActorLogging {
 
   private var numberOfReceivedOperations: Int = 0
 
   implicit val dispatcher: ExecutionContextExecutor = context.dispatcher
   val lookupDispatcher: ExecutionContextExecutor = context.system.dispatchers.lookup(SynchronizationDispatcher.configurationKey(SynchronizationDispatcher.LibcoreLookup))
-  private val walletPoolDao = WalletPoolDao(poolName.name)
+  private val walletPoolDao = Await.result(daemonCache.getWalletPool(PoolInfo(poolName.name)), 30.seconds).map(_.walletPoolDao).get
+
   private val eventReceiver = new AccountOperationReceiver(self)
   private val accountInfo: String = s"$poolName/${wallet.getName}/${account.getIndex}"
 
@@ -53,7 +56,8 @@ class AccountOperationsPublisher(account: Account, wallet: Wallet, poolName: Poo
       updateOperationsCount()
       fetchOperationView(opId).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishOperation(op, account, wallet, poolName.name))
     case DeletedOperationEvent(opId) => publisher.publishDeletedOperation(opId.uid, account, wallet, poolName.name)
-    case PublishOperation(op) => publisher.publishOperation(op, account, wallet, poolName.name)
+    case PublishOperation(op) =>
+      publisher.publishOperation(op, account, wallet, poolName.name)
   }
 
   private def listenOperationsEvents(account: Account): Unit = eventReceiver.listenEvents(account.getEventBus)
@@ -97,7 +101,8 @@ object AccountOperationsPublisher {
 
   case class OperationsCount(count: Int) extends AnyVal
 
-  def props(account: Account, wallet: Wallet, poolName: PoolName, publisher: Publisher): Props = Props(new AccountOperationsPublisher(account, wallet, poolName, publisher))
+  def props(cache: DaemonCache, account: Account, wallet: Wallet, poolName: PoolName, publisher: Publisher): Props =
+    Props(new AccountOperationsPublisher(cache, account, wallet, poolName, publisher))
 
   def name(account: Account, wallet: Wallet, poolName: PoolName): String = AkkaUtils.validActorName("operation-publisher", poolName.name, wallet.getName, account.getIndex.toString)
 

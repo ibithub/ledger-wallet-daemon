@@ -8,6 +8,7 @@ import com.twitter.inject.Logging
 import com.twitter.util.Future
 
 class Database(config: CoreDbConfig, poolName: String) extends Logging {
+  logger.info(s"Create Database instance for pool $poolName with $config")
   val client: PostgresClientImpl = connectionPool
 
   def executeQuery[T](query: SQLQuery)(f: Row => T): Future[Seq[T]] = {

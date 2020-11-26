@@ -4,10 +4,11 @@ import java.net.URL
 
 import co.ledger.core
 import co.ledger.core.implicits._
-import co.ledger.core.{ConfigurationDefaults, ErrorCode, WalletPool}
+import co.ledger.core.{ConfigurationDefaults, ErrorCode}
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
 import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
+import co.ledger.wallet.daemon.database.core.WalletPoolDao
 import co.ledger.wallet.daemon.database.{PoolDto, PostgresPreferenceBackend}
 import co.ledger.wallet.daemon.exceptions.{CoreDatabaseException, CurrencyNotFoundException, UnsupportedNativeSegwitException, WalletNotFoundException}
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
@@ -38,6 +39,8 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
   private[this] val eventReceivers: mutable.Set[core.EventReceiver] = Utils.newConcurrentSet[core.EventReceiver]
 
   val name: String = coreP.getName
+  logger.info(s"New Core Pool instance - ${coreP.getName} - id $id")
+  val walletPoolDao: WalletPoolDao = WalletPoolDao(name)
 
   def view: Future[WalletPoolView] = coreP.getWalletCount().map { count => WalletPoolView(name, count) }
 
@@ -251,33 +254,26 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
 
 object Pool extends Logging {
 
+  private val config = ConfigFactory.load()
+
   import com.google.common.cache.CacheBuilder
 
-  val poolInstances: LoadingCache[String, core.WalletPool] =
+  private case class CacheKey(id: Long, poolName: String)
+
+  private val poolInstances: LoadingCache[CacheKey, Pool] =
     CacheBuilder.newBuilder()
-      .build[String, core.WalletPool](new CacheLoader[String, core.WalletPool] {
-        override def load(poolName: String): WalletPool = Await.result(newCoreWalletPool(poolName), Duration.Inf)
+      .build[CacheKey, Pool](new CacheLoader[CacheKey, Pool] {
+        override def load(key: CacheKey): Pool = new Pool(Await.result(newCoreWalletPool(key.poolName), Duration.Inf), key.id)
       })
-
-  private val config = ConfigFactory.load()
-  var preferenceBackend: PostgresPreferenceBackend = _
-
-
-  def newInstance(coreP: core.WalletPool, id: Long): Pool = {
-    new Pool(coreP, id)
-  }
 
   def newPoolInstance(poolDto: PoolDto): Option[Pool] = {
     poolDto.id.fold(
       Option.empty[Pool]
-    )(id => Some(Pool.newInstance(newCoreInstance(poolDto), id)))
+    )(id => Some(poolInstances.get(CacheKey(id, poolDto.name))))
   }
 
-  def newCoreInstance(poolDto: PoolDto): core.WalletPool = {
-    poolInstances.get(poolDto.name)
-  }
 
-  def newCoreWalletPool(poolName: String): Future[core.WalletPool] = {
+  private def newCoreWalletPool(poolName: String): Future[core.WalletPool] = {
     val poolConfig = core.DynamicObject.newInstance()
     val builder = core.WalletPoolBuilder.createInstance()
 
@@ -302,9 +298,9 @@ object Pool extends Logging {
         }
         dbName match {
           case Success((cppUrl, jdbcUrl)) =>
-            info(s"Using PostgreSQL as core preference database $jdbcUrl")
             val cnx = 2
-            preferenceBackend = new PostgresPreferenceBackend(
+            info(s"Using PostgreSQL as core preference database $jdbcUrl with connexions : $cnx")
+            val preferenceBackend = new PostgresPreferenceBackend(
               Database.forDataSource(new DriverDataSource(jdbcUrl), Some(cnx), AsyncExecutor("PreferenceDbPool", cnx, -1)))
             preferenceBackend.init()
             builder.setExternalPreferencesBackend(preferenceBackend)

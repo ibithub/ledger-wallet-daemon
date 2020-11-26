@@ -28,7 +28,7 @@ class WalletTest extends AssertionsForJUnit {
     "88c2281acd51737c912af74cc1d1a8ba564eb7925e0d58a5500b004ba76099cb")
 
   @Test def verifyWalletActivities(): Unit = {
-    val testPool = Pool.newInstance(Pool.newCoreInstance(PoolDto("random", "", Option(0L))), 1L)
+    val testPool = Pool.newPoolInstance(PoolDto("random", "", Option(0L))).get
 
     val testWallet = Await.result(testPool.addWalletIfNotExist("test_wallet", "bitcoin", isNativeSegwit = false), Duration.Inf)
 
@@ -42,7 +42,8 @@ class WalletTest extends AssertionsForJUnit {
           }
         )
       }.flatMap { info =>
-        testWallet.addAccountIfNotExist(info) }
+        testWallet.addAccountIfNotExist(info)
+      }
     }, Duration.Inf)
 
     val account6: core.Account = Await.result(
@@ -81,7 +82,7 @@ class WalletTest extends AssertionsForJUnit {
   }
 
   @Test def verifyWalletSupportNativeSegwit(): Unit = {
-    val testPool = Pool.newInstance(Pool.newCoreInstance( PoolDto("random", "", Option(0L))), 1L)
+    val testPool = Pool.newPoolInstance(PoolDto("random", "", Option(0L))).get
 
     val testWalletBitcoinNativeSegwit = Await.result(testPool.addWalletIfNotExist("test_wallet_bitcoin_native_segwit", "bitcoin", isNativeSegwit = true), Duration.Inf)
 

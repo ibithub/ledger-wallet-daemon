@@ -118,7 +118,7 @@ class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, synchronize
       accountInfo,
       (i: AccountInfo) => {
         info(s"Registered account $i to account synchronizer manager")
-        synchronizerFactory(account, wallet, PoolName(i.poolName))
+        synchronizerFactory(daemonCache, account, wallet, PoolName(i.poolName))
       }
     )
   }
@@ -220,7 +220,8 @@ class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, synchronize
   * Syncing(fromHeight)       Resyncing(targetHeight, currentHeight)
   *
   */
-class AccountSynchronizer(account: Account,
+class AccountSynchronizer(cache: DaemonCache,
+                          account: Account,
                           wallet: Wallet,
                           poolName: PoolName,
                           createPublisher: PublisherModule.OperationsPublisherFactory) extends Actor with Timers
@@ -337,7 +338,7 @@ class AccountSynchronizer(account: Account,
     if (operationPublisher != ActorRef.noSender) {
       operationPublisher ! PoisonPill
     }
-    operationPublisher = createPublisher(this.context, account, wallet, poolName)
+    operationPublisher = createPublisher(this.context, cache, account, wallet, poolName)
   }
 
   /**
@@ -412,14 +413,18 @@ object AccountSynchronizer {
 
 
 sealed trait SynchronizationDispatcher
+
 object SynchronizationDispatcher {
+
   object LibcoreLookup extends SynchronizationDispatcher
+
   object Synchronizer extends SynchronizationDispatcher
+
   object Publisher extends SynchronizationDispatcher
 
   type DispatcherKey = String
 
-  def configurationKey(dispatcher : SynchronizationDispatcher) : DispatcherKey = dispatcher match {
+  def configurationKey(dispatcher: SynchronizationDispatcher): DispatcherKey = dispatcher match {
     case LibcoreLookup => "synchronization.libcore-lookup.dispatcher"
     case Synchronizer => "synchronization.synchronizer.dispatcher"
     case Publisher => "synchronization.publisher.dispatcher"

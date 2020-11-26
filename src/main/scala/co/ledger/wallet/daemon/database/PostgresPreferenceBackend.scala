@@ -20,7 +20,7 @@ class PostgresPreferenceBackend @Inject()(db: Database) extends PreferencesBacke
   type KeyPref = ByteBuffer
   type ValuePref = ByteBuffer
   val prefCache: LoadingCache[KeyPref, Option[ValuePref]] = CacheBuilder.newBuilder()
-    .maximumSize(1000)
+    .maximumSize(2000)
     .build[KeyPref, Option[ValuePref]](new CacheLoader[KeyPref, Option[ValuePref]] {
       override def load(key: KeyPref): Option[ValuePref] = {
         loadPrefEntry(key.array()).map[ValuePref](ByteBuffer.wrap)
