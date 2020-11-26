@@ -30,7 +30,7 @@ class RippleDao(db: Database) extends CoinDao with Logging {
   /**
     * List operations from an account filtered by Uids
     */
-  override def listOperationsByUids(a: Account, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[Operations.OperationView]] = {
+  override def findOperationsByUids(a: Account, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[Operations.OperationView]] = {
     Future {
       Seq.empty
     }

@@ -58,7 +58,7 @@ class BitcoinDao(db: Database) extends CoinDao with Logging {
   /**
     * List operations from an account filtered by Uids
     */
-  def listOperationsByUids(a: Account, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[OperationView]] = {
+  def findOperationsByUids(a: Account, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[OperationView]] = {
     listOperationsByUids(a, w, Some(filteredUids), offset, limit)
   }
 

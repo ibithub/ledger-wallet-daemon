@@ -32,8 +32,8 @@ class WalletPoolDao(poolName: String)(implicit val ec: ExecutionContext) extends
   /**
     * List operations from an account filtered by Uids
     */
-  override def listOperationsByUids(a: Account, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[OperationView]] =
-    daoForWalletType(w.getWalletType).listOperationsByUids(a, w, filteredUids, offset, limit)
+  override def findOperationsByUids(a: Account, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[OperationView]] =
+    daoForWalletType(w.getWalletType).findOperationsByUids(a, w, filteredUids, offset, limit)
 
   def daoForWalletType(wt: WalletType): CoinDao = wt match {
     case WalletType.BITCOIN => btcDao

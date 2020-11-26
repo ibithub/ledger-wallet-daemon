@@ -40,6 +40,7 @@ package object core {
     case object Descending extends OperationOrder {
       override val value: String = "DSC"
     }
+
   }
 
   /**
@@ -60,4 +61,29 @@ package object core {
                               accountIndex: Int,
                               senders: Seq[String],
                               recipients: Seq[String])
+
+  /**
+    * Partial Operation is fitting generic operation core model
+    */
+  case class PartialEthOperation(uid: String,
+                                 currencyName: String,
+                                 currencyFamily: String,
+                                 date: Date,
+                                 txHash: String,
+                                 blockHeight: Option[Long],
+                                 blockHash: Option[String],
+                                 blockTime: Option[Date],
+                                 opType: String,
+                                 amount: BigInt,
+                                 fees: BigInt,
+                                 walletName: String,
+                                 accountIndex: Int,
+                                 gasPrice: String,
+                                 gasLimit: String,
+                                 gasUsed: String,
+                                 status: BigInt,
+                                 confirmations: BigInt,
+                                 sender: String,
+                                 recipient: String)
+
 }

@@ -3,14 +3,12 @@ package co.ledger.wallet.daemon.database
 import java.util.UUID
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
-import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.exceptions.WalletPoolNotFoundException
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Operations.PackedOperationsView
 import co.ledger.wallet.daemon.models._
 import com.twitter.inject.Logging
 import javax.inject.Singleton
-import slick.jdbc.JdbcBackend.Database
 
 import scala.collection._
 import scala.concurrent.Future
@@ -88,6 +86,6 @@ class DefaultDaemonCache() extends DaemonCache with Logging {
 }
 
 object DefaultDaemonCache extends Logging {
-  private[database] val dbDao = new DatabaseDao(Database.forConfig(DaemonConfiguration.dbProfileName))
+  private[database] val dbDao = new DatabaseDao(DatabaseInstance.instance)
   private[database] val opsCache: OperationCache = new OperationCache()
 }

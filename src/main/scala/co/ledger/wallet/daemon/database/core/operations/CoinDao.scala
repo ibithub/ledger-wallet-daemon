@@ -21,6 +21,6 @@ trait CoinDao {
   /**
     * List operations from an account filtered by Uids
     */
-  def listOperationsByUids(a: Account, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[OperationView]]
+  def findOperationsByUids(a: Account, w: Wallet, filteredUids: Seq[OperationUid], offset: Int, limit: Int): Future[Seq[OperationView]]
 
 }
