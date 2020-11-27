@@ -3,6 +3,7 @@ package co.ledger.wallet.daemon.database.core.operations
 import java.util.Date
 
 import co.ledger.core.{Account, OperationType, Wallet}
+import co.ledger.wallet.daemon.database.core.Database.SQLQuery
 import co.ledger.wallet.daemon.database.core.Decoder._
 import co.ledger.wallet.daemon.database.core.{Database, Ordering, PartialOperation}
 import co.ledger.wallet.daemon.models.Operations.OperationView
@@ -11,10 +12,10 @@ import com.twitter.finagle.postgres.Row
 import com.twitter.inject.Logging
 import com.twitter.util.Future
 
-class BitcoinDao(db: Database) extends CoinDao with Logging {
+class BitcoinDao(protected val db: Database) extends CoinDao with Logging {
   logger.info(s"BitcoinDao created for ${db.client}")
 
-  private val btcInputQuery: (Seq[OperationUid], Int, Int) => OperationUid = (opUids: Seq[OperationUid], offset: Int, limit: Int) =>
+  private val btcInputQuery: (Seq[OperationUid], Int, Int) => SQLQuery = (opUids: Seq[OperationUid], offset: Int, limit: Int) =>
     "SELECT bop.uid, bins.address, bins.amount, bins.coinbase, bins.previous_tx_hash, bins.previous_output_idx " +
       "FROM bitcoin_operations bop, bitcoin_transactions bt, bitcoin_inputs bins, bitcoin_transaction_inputs btxi " +
       "WHERE bop.transaction_uid = bt.transaction_uid " +
@@ -23,7 +24,7 @@ class BitcoinDao(db: Database) extends CoinDao with Logging {
       s"AND bop.uid IN ('${opUids.mkString("','")}') " +
       s"OFFSET $offset LIMIT $limit"
 
-  private val btcOutputQuery: (Seq[OperationUid], Int, Int) => OperationUid = (opUids: Seq[OperationUid], offset: Int, limit: Int) =>
+  private val btcOutputQuery: (Seq[OperationUid], Int, Int) => SQLQuery = (opUids: Seq[OperationUid], offset: Int, limit: Int) =>
     "SELECT bop.uid, bt.hash, bout.idx, bout.amount, bout.address, bout.script " +
       "FROM bitcoin_operations bop, bitcoin_transactions bt, bitcoin_outputs bout " +
       "WHERE bt.transaction_uid = bop.transaction_uid " +
@@ -31,7 +32,7 @@ class BitcoinDao(db: Database) extends CoinDao with Logging {
       s"AND bop.uid IN ('${opUids.mkString("','")}') " +
       s"OFFSET $offset LIMIT $limit"
 
-  private val btcOperationQuery: (Int, String, Ordering.OperationOrder, Option[Seq[OperationUid]], Int, Int) => OperationUid =
+  private val btcOperationQuery: (Int, String, Ordering.OperationOrder, Option[Seq[OperationUid]], Int, Int) => SQLQuery =
     (accountIndex: Int, walletName: String, order: Ordering.OperationOrder, filteredUids: Option[Seq[OperationUid]], offset: Int, limit: Int) =>
       "SELECT o.uid, o.date, bop.transaction_hash, b.height as block_height, b.time as block_time, b.hash as block_hash, o.type, o.amount, o.fees, o.senders, o.recipients " +
         "FROM accounts a, wallets w, operations o, bitcoin_operations bop, blocks b " +
@@ -40,6 +41,7 @@ class BitcoinDao(db: Database) extends CoinDao with Logging {
         filteredUids.fold("")(uids => s"AND o.uid IN ('${uids.mkString("','")}') ") +
         "ORDER BY o.date " + order.value +
         s" OFFSET $offset LIMIT $limit"
+
 
   /**
     * List operations from an account
@@ -170,4 +172,5 @@ class BitcoinDao(db: Database) extends CoinDao with Logging {
   private def queryBitcoinOperations[T](accountIndex: Int, walletName: String, filteredUids: Option[Seq[OperationUid]], offset: Int, limit: Int)(f: Row => T) = {
     db.executeQuery[T](btcOperationQuery(accountIndex, walletName, Ordering.Ascending, filteredUids, offset, limit))(f)
   }
+
 }

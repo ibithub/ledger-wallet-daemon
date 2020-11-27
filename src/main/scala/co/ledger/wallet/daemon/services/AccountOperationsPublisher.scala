@@ -9,7 +9,7 @@ import co.ledger.core._
 import co.ledger.wallet.daemon.database.DaemonCache
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Operations.OperationView
-import co.ledger.wallet.daemon.models.PoolInfo
+import co.ledger.wallet.daemon.models.{Pool, PoolInfo}
 import co.ledger.wallet.daemon.services.AccountOperationsPublisher._
 import co.ledger.wallet.daemon.utils.AkkaUtils
 import co.ledger.wallet.daemon.utils.Utils._
@@ -23,7 +23,8 @@ class AccountOperationsPublisher(daemonCache: DaemonCache, account: Account, wal
 
   implicit val dispatcher: ExecutionContextExecutor = context.dispatcher
   val lookupDispatcher: ExecutionContextExecutor = context.system.dispatchers.lookup(SynchronizationDispatcher.configurationKey(SynchronizationDispatcher.LibcoreLookup))
-  private val walletPoolDao = Await.result(daemonCache.getWalletPool(PoolInfo(poolName.name)), 30.seconds).map(_.walletPoolDao).get
+  private lazy val pool: Pool = Await.result(daemonCache.getWalletPool(PoolInfo(poolName.name)), 30.seconds).get
+  private lazy val walletPoolDao = pool.walletPoolDao
 
   private val eventReceiver = new AccountOperationReceiver(self)
   private val accountInfo: String = s"$poolName/${wallet.getName}/${account.getIndex}"
@@ -31,9 +32,9 @@ class AccountOperationsPublisher(daemonCache: DaemonCache, account: Account, wal
   private val operationsCountSubscribers: scala.collection.mutable.Set[ActorRef] = scala.collection.mutable.Set.empty[ActorRef]
 
   override def preStart(): Unit = {
+    super.preStart()
     log.info(s"Actor $accountInfo is starting, Actor name=${self.path.name}")
     listenOperationsEvents(account)
-    super.preStart()
   }
 
   override def postStop(): Unit = {
@@ -45,10 +46,11 @@ class AccountOperationsPublisher(daemonCache: DaemonCache, account: Account, wal
   override def receive: Receive = LoggingReceive {
     case SubscribeToOperationsCount(subscriber) => operationsCountSubscribers.add(subscriber)
     case s: SyncStatus if account.isInstanceOfEthereumLikeAccount =>
-      publisher.publishAccount(account, wallet, poolName.name, s).flatMap(_ => {
+      publisher.publishAccount(pool, account, wallet, s).flatMap(_ => {
         publisher.publishERC20Accounts(account, wallet, poolName.name, s)
       })
-    case s: SyncStatus => publisher.publishAccount(account, wallet, poolName.name, s)
+    case s: SyncStatus =>
+      publisher.publishAccount(pool, account, wallet, s)
     case NewERC20OperationEvent(_, opId) =>
       updateOperationsCount()
       fetchErc20OperationView(opId).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishERC20Operation(op, account, wallet, poolName.name))

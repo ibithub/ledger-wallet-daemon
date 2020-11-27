@@ -46,28 +46,25 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
         }
       })
 
-
-  private def accountView(walletInfo: WalletInfo, wallet: Wallet)(account: Account): Future[Option[AccountView]] = {
-
+  private def accountView(pool: Pool, walletInfo: WalletInfo, wallet: Wallet)(account: Account): Future[Option[AccountView]] = {
     val status: Future[Option[SyncStatus]] = synchronizerManager.getSyncStatus(AccountInfo(account.getIndex, walletInfo))
-    val view: SyncStatus => Future[AccountView] = account.accountView(walletInfo.walletName, wallet.getCurrency.currencyView, _)
-
+    val view: SyncStatus => Future[AccountView] = account.accountView(pool, wallet, wallet.getCurrency.currencyView, _)
     OptionT(status).semiflatMap(view).value
   }
 
   def accounts(walletInfo: WalletInfo): Future[Seq[AccountView]] = {
-    daemonCache.withWallet(walletInfo) { wallet =>
-      wallet.accounts.flatMap { as =>
-        as.map(accountView(walletInfo, wallet)).toList.sequence[Future, Option[AccountView]].map(_.flatten)
+    daemonCache.withWalletAndPool(walletInfo) { (w, p) =>
+      w.accounts.flatMap { as =>
+        as.map(accountView(p, walletInfo, w)(_)).toList.sequence[Future, Option[AccountView]].map(_.flatten)
       }
     }
   }
 
   def account(accountInfo: AccountInfo): Future[Option[AccountView]] = {
-    daemonCache.withWallet(accountInfo.walletInfo) { wallet =>
+    daemonCache.withWalletAndPool(accountInfo.walletInfo) { (wallet, pool) =>
       (for {
         a <- OptionT(wallet.account(accountInfo.accountIndex))
-        view <- OptionT(accountView(accountInfo.walletInfo, wallet)(a))
+        view <- OptionT(accountView(pool, accountInfo.walletInfo, wallet)(a))
       } yield view).value
     }
   }
@@ -262,24 +259,23 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
   }
 
   def createAccount(accountCreationBody: AccountDerivationView, walletInfo: WalletInfo): Future[AccountView] =
-    daemonCache.withWallet(walletInfo) {
-      w =>
+    daemonCache.withWalletAndPool(walletInfo) {
+      (w, p) =>
         w.addAccountIfNotExist(accountCreationBody).flatMap { a =>
           val accountInfo = AccountInfo(a.getIndex, walletInfo)
           synchronizerManager.registerAccount(a, w, accountInfo)
 
-          accountView(walletInfo, w)(a).map(_.get)
+          accountView(p, walletInfo, w)(a).map(_.get)
         }
     }
 
   def createAccountWithExtendedInfo(derivations: AccountExtendedDerivationView, walletInfo: WalletInfo): Future[AccountView] =
-    daemonCache.withWallet(walletInfo) {
-      w =>
+    daemonCache.withWalletAndPool(walletInfo) {
+      (w, p) =>
         w.addAccountIfNotExist(derivations).flatMap { a =>
           val accountInfo = AccountInfo(a.getIndex, walletInfo)
           synchronizerManager.registerAccount(a, w, accountInfo)
-
-          accountView(walletInfo, w)(a).map(_.get)
+          accountView(p, walletInfo, w)(a).map(_.get)
         }
     }
 

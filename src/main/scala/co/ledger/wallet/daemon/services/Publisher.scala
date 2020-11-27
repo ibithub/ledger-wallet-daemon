@@ -3,6 +3,7 @@ package co.ledger.wallet.daemon.services
 import co.ledger.core._
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
 import co.ledger.wallet.daemon.models.Operations.OperationView
+import co.ledger.wallet.daemon.models.Pool
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.twitter.inject.Logging
 
@@ -15,7 +16,7 @@ trait Publisher {
 
   def publishERC20Operation(op: OperationView, account: Account, wallet: Wallet, poolName: String): Unit
 
-  def publishAccount(account: Account, wallet: Wallet, poolName: String, syncStatus: SyncStatus): Future[Unit]
+  def publishAccount(pool: Pool, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Unit]
 
   def publishERC20Account(erc20Account: ERC20LikeAccount, account: Account, wallet: Wallet, syncStatus: SyncStatus, poolName: String): Future[Unit]
 
@@ -75,9 +76,9 @@ class DummyPublisher extends Publisher with Logging {
     info(s"publish erc20 operation ${op.uid} of account:${account.getIndex}, wallet:${wallet.getName}, pool:$poolName")
   }
 
-  override def publishAccount(account: Account, wallet: Wallet, poolName: String, syncStatus: SyncStatus): Future[Unit] = {
+  override def publishAccount(pool: Pool, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Unit] = {
     Future.successful(
-      info(s"publish account:${account.getIndex}, wallet:${wallet.getName}, pool:$poolName, syncStatus: $syncStatus")
+      info(s"publish pool:${pool.name} ,account:${account.getIndex}, wallet:${wallet.getName}, syncStatus: $syncStatus")
     )
   }
 
@@ -88,7 +89,7 @@ class DummyPublisher extends Publisher with Logging {
   }
 
   override def publishDeletedOperation(uid: String, account: Account, wallet: Wallet, poolName: String): Future[Unit] = {
-    Future.successful{
+    Future.successful {
       info(s"delete operation $uid for account:${account.getIndex}, wallet:${wallet.getName}, pool:$poolName")
     }
   }

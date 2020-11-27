@@ -17,6 +17,7 @@ import co.ledger.wallet.daemon.models.coins._
 import co.ledger.wallet.daemon.schedulers.observers.{SynchronizationEventReceiver, SynchronizationResult}
 import co.ledger.wallet.daemon.services.SyncStatus
 import co.ledger.wallet.daemon.utils.HexUtils
+import co.ledger.wallet.daemon.utils.Utils._
 import co.ledger.wallet.daemon.utils.Utils.{DestroyableOperationQuery, RichBigInt, RichCoreBigInt}
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.google.common.primitives.UnsignedInteger
@@ -76,8 +77,8 @@ object Account extends Logging {
     def operationCounts(implicit ec: ExecutionContext): Future[Map[core.OperationType, Int]] =
       Account.operationCounts(a)
 
-    def accountView(walletName: String, cv: CurrencyView, syncStatus: SyncStatus)(implicit ec: ExecutionContext): Future[AccountView] =
-      Account.accountView(walletName, cv, a, syncStatus)
+    def accountView(pool: Pool, wallet: Wallet, cv: CurrencyView, syncStatus: SyncStatus)(implicit ec: ExecutionContext): Future[AccountView] =
+      Account.accountView(pool, wallet, cv, a, syncStatus)
 
     def erc20AccountView(erc20Acc: ERC20LikeAccount, wallet: Wallet, syncStatus: SyncStatus)(implicit ec: ExecutionContext): Future[ERC20FullAccountView] =
       Account.erc20AccountView(a, erc20Acc, wallet, syncStatus)
@@ -212,11 +213,11 @@ object Account extends Logging {
       os.asScala.groupBy(o => o.getOperationType).map { case (optType, opts) => (optType, opts.size) }
     }
 
-  def accountView(walletName: String, cv: CurrencyView, a: core.Account, syncStatus: SyncStatus)(implicit ex: ExecutionContext): Future[AccountView] =
+  def accountView(pool: Pool, w: Wallet, cv: CurrencyView, a: core.Account, syncStatus: SyncStatus)(implicit ex: ExecutionContext): Future[AccountView] =
     for {
       b <- balance(a)
-      opsCount <- operationCounts(a)
-    } yield AccountView(walletName, a.getIndex, b, opsCount, a.getRestoreKey, cv, syncStatus)
+      opsCount <- pool.walletPoolDao.countOperations(a, w).asScala()
+    } yield AccountView(w.getName, a.getIndex, b, opsCount, a.getRestoreKey, cv, syncStatus)
 
   def erc20AccountView(
                         a: core.Account,

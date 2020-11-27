@@ -3,6 +3,7 @@ package co.ledger.wallet.daemon.database.core.operations
 import java.util.Date
 
 import co.ledger.core.{Account, OperationType, Wallet}
+import co.ledger.wallet.daemon.database.core.Database.SQLQuery
 import co.ledger.wallet.daemon.database.core.Decoder._
 import co.ledger.wallet.daemon.database.core.{Database, Ordering}
 import co.ledger.wallet.daemon.models.Operations.OperationView
@@ -11,10 +12,10 @@ import com.twitter.finagle.postgres.Row
 import com.twitter.inject.Logging
 import com.twitter.util.Future
 
-class RippleDao(db: Database) extends CoinDao with Logging {
+class RippleDao(protected val db: Database) extends CoinDao with Logging {
   logger.info(s"RippleDao created for ${db.client}")
 
-  private val rippleOperationQuery: (Int, String, Ordering.OperationOrder, Option[Seq[OperationUid]], Int, Int) => OperationUid =
+  private val rippleOperationQuery: (Int, String, Ordering.OperationOrder, Option[Seq[OperationUid]], Int, Int) => SQLQuery =
     (accountIndex: Int, walletName: String, order: Ordering.OperationOrder, filteredUids: Option[Seq[OperationUid]], offset: Int, limit: Int) =>
       "SELECT o.uid, o.date, xop.transaction_hash, " +
         "b.height as block_height, b.time as block_time, b.hash as block_hash, o.type, o.amount, o.fees, o.senders, o.recipients, " +
@@ -26,7 +27,7 @@ class RippleDao(db: Database) extends CoinDao with Logging {
         "ORDER BY o.date " + order.value +
         s" OFFSET $offset LIMIT $limit"
 
-  private val rippleTransactionMemosQuery: Seq[TransactionUid] => OperationUid = (opUids: Seq[TransactionUid]) =>
+  private val rippleTransactionMemosQuery: Seq[TransactionUid] => SQLQuery = (opUids: Seq[TransactionUid]) =>
     "SELECT rop.uid, mem.array_index, mem.data, mem.fmt, mem.ty " +
       "FROM ripple_memos mem " +
       "JOIN ripple_operations rop ON rop.transaction_uid = mem.transaction_uid " +
@@ -164,4 +165,5 @@ class RippleDao(db: Database) extends CoinDao with Logging {
                              status: Int,
                              sequence: BigInt,
                              destination_tag: BigInt)
+
 }

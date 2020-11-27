@@ -5,6 +5,7 @@ import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.gl
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Operations.OperationView
+import co.ledger.wallet.daemon.models.Pool
 import com.rabbitmq.client.{BuiltinExchangeType, ConnectionFactory}
 import com.twitter.finatra.json.FinatraObjectMapper
 import com.twitter.inject.Logging
@@ -47,9 +48,9 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
     publish(poolName, getERC20TransactionRoutingKeys(operationView, account, wallet.getCurrency.getName, poolName), payload)
   }
 
-  def publishAccount(account: Account, wallet: Wallet, poolName: String, syncStatus: SyncStatus): Future[Unit] = {
-    accountPayload(account, wallet, syncStatus).map { payload =>
-      publish(poolName, getAccountRoutingKeys(account, wallet, poolName), payload)
+  def publishAccount(pool: Pool, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Unit] = {
+    accountPayload(pool, account, wallet, syncStatus).map { payload =>
+      publish(pool.name, getAccountRoutingKeys(account, wallet, pool.name), payload)
     }
   }
 
@@ -87,8 +88,8 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
     )
   }
 
-  private def accountPayload(account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = this.synchronized {
-    account.accountView(wallet.getName, wallet.getCurrency.currencyView, syncStatus).map {
+  private def accountPayload(pool: Pool, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = this.synchronized {
+    account.accountView(pool, wallet, wallet.getCurrency.currencyView, syncStatus).map {
       mapper.writeValueAsBytes(_)
     }
   }

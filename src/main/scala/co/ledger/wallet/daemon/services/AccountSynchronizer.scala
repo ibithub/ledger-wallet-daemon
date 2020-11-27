@@ -363,11 +363,12 @@ class AccountSynchronizer(cache: DaemonCache,
           log.info(s"#Sync : $accountInfo has been synced : $result")
           lastAccountBlockHeight.map(SyncSuccess)
         } else {
+          log.error(s"#Sync : $accountInfo has FAILED")
           Future.successful(SyncFailure(s"#Sync : Lib core failed to sync the account $accountInfo"))
         }
       }
       .recoverWith { case NonFatal(t) =>
-        log.error(t, s"Failed to sync account: $accountInfo")
+        log.error(t, s"#Sync Failed to sync account: $accountInfo")
         Future.successful(SyncFailure(t.getMessage))
       }
   }

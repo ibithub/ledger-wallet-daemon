@@ -4,9 +4,11 @@ import co.ledger.core.{Account, Wallet}
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
 import co.ledger.wallet.daemon.database.core.WalletPoolDao
 import co.ledger.wallet.daemon.models.Account._
+import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Wallet._
 import co.ledger.wallet.daemon.models.coins.EthereumTransactionView
 import co.ledger.wallet.daemon.models.{AccountExtendedDerivationView, ExtendedDerivationView, Pool, PoolInfo}
+import co.ledger.wallet.daemon.services.Synced
 import co.ledger.wallet.daemon.utils.NativeLibLoader
 import com.twitter.inject.Logging
 import com.twitter.util.{Await => TwitterAwait}
@@ -16,17 +18,15 @@ import org.scalatest.junit.AssertionsForJUnit
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-
 @Test
 class WalletPoolDAOTest extends AssertionsForJUnit with Logging {
   NativeLibLoader.loadLibs()
 
   val xpubBtc1: String = "xpub6D4waFVPfPCpefXd5Rwb9TRuhoW7WZfYTS4cjv6Cw7ZBvFURHFFVYV2GF8hD36r31iDwBuP71TAEmy9596SnA7Hi6bgCLo6DYb7UUVqWWPA"
-  val xpubEth1: String = "XPUBETHsrc/main/scala/co/ledger/wallet/daemon/database/core/operations/EthereumDao.scala"
+  val xpubEth1: String = "XPUBETH"
   val daemonCache: DaemonCache = new DefaultDaemonCache()
   val poolName = "walletpooldao"
   val pool: Pool = Await.result(daemonCache.createWalletPool(PoolInfo(poolName), ""), Duration.Inf) // Pool.newPoolInstance(PoolDto(poolName, "", Some(1))).get
-
 
   def createWallet(walletName: String): Wallet = {
     Await.result(pool.addWalletIfNotExist(walletName, walletName, isNativeSegwit = false), Duration.Inf)
@@ -48,7 +48,7 @@ class WalletPoolDAOTest extends AssertionsForJUnit with Logging {
 
     val account = createAccountAndSync(wallet, derivations)
 
-    val allOperations = TwitterAwait.result(poolDao.listAllOperations(account, wallet, 0, 100))
+    val allOperations = TwitterAwait.result(poolDao.listAllOperations(account, wallet, 0, 1000))
     logger.info(s" All operations : ${allOperations.size}")
 
     val filteredOperations = TwitterAwait.result(
@@ -75,6 +75,13 @@ class WalletPoolDAOTest extends AssertionsForJUnit with Logging {
           "3479299812467aa58192e0bc0a54c085ab11db2f5172bdbc4b6273ea791e82d4"
         ), 1, 10))
     assert(filteredOperationsWithOffset.size == 2)
+    val opCounts = TwitterAwait.result(poolDao.countOperations(account, wallet))
+    val countByType = allOperations.groupBy(_.opType).mapValues(_.size)
+    assert(opCounts == countByType)
+    assert(opCounts.values.sum == allOperations.size)
+
+    logger.info("Account view : " +
+      s"${Await.result(account.accountView(pool, wallet, wallet.getCurrency.currencyView, Synced(0L)), Duration.Inf)}")
   }
 
   @Test def testEthereumWallet(): Unit = {

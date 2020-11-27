@@ -6,7 +6,7 @@ import co.ledger.wallet.daemon.models.Operations
 import com.twitter.inject.Logging
 import com.twitter.util.Future
 
-class StellarDao(db: Database) extends CoinDao with Logging {
+class StellarDao(protected val db: Database) extends CoinDao with Logging {
   logger.info(s"StellarDao created for ${db.client}")
 
   /**

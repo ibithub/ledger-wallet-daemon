@@ -13,7 +13,7 @@ import com.twitter.finagle.postgres.Row
 import com.twitter.inject.Logging
 import com.twitter.util.Future
 
-class EthereumDao(db: Database) extends CoinDao with ERC20Dao with Logging {
+class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with Logging {
   logger.info(s"EthereumDao created for ${db.client}")
 
   private val ethOperationQuery: (Int, String, Ordering.OperationOrder, Option[Seq[OperationUid]], Int, Int) => SQLQuery =
@@ -255,5 +255,4 @@ class EthereumDao(db: Database) extends CoinDao with ERC20Dao with Logging {
   private def queryERC20OperationsFullView(a: Account, w: Wallet, filteredUids: Option[Seq[ERC20OperationUid]], offset: Int, limit: Int)(f: Row => OperationView): Future[Seq[OperationView]] = {
     db.executeQuery(ethOperationByErc20Uids(a.getIndex, w.getName, Ordering.Ascending, filteredUids, offset, limit))(f)
   }
-
 }
