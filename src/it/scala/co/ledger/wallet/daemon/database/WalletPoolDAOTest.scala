@@ -7,8 +7,8 @@ import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Wallet._
 import co.ledger.wallet.daemon.models.coins.EthereumTransactionView
-import co.ledger.wallet.daemon.models.{AccountExtendedDerivationView, ExtendedDerivationView, Pool, PoolInfo}
 import co.ledger.wallet.daemon.services.Synced
+import co.ledger.wallet.daemon.models.{AccountDerivationView, DerivationView, AccountExtendedDerivationView, ExtendedDerivationView, Pool, PoolInfo}
 import co.ledger.wallet.daemon.utils.NativeLibLoader
 import com.twitter.inject.Logging
 import com.twitter.util.{Await => TwitterAwait}
@@ -24,6 +24,7 @@ class WalletPoolDAOTest extends AssertionsForJUnit with Logging {
 
   val xpubBtc1: String = "xpub6D4waFVPfPCpefXd5Rwb9TRuhoW7WZfYTS4cjv6Cw7ZBvFURHFFVYV2GF8hD36r31iDwBuP71TAEmy9596SnA7Hi6bgCLo6DYb7UUVqWWPA"
   val xpubEth1: String = "XPUBETH"
+  val stellarPubKey1: String = "a1083d11720853a2c476a07e29b64e0f9eb2ff894f1e485628faa7b63de77a4f"
   val daemonCache: DaemonCache = new DefaultDaemonCache()
   val poolName = "walletpooldao"
   val pool: Pool = Await.result(daemonCache.createWalletPool(PoolInfo(poolName), ""), Duration.Inf) // Pool.newPoolInstance(PoolDto(poolName, "", Some(1))).get
@@ -37,6 +38,13 @@ class WalletPoolDAOTest extends AssertionsForJUnit with Logging {
     Await.result(account.sync(poolName, wallet.getName), Duration.Inf)
     account
   }
+
+  def createAccountAndSync(wallet: Wallet, derivations: AccountDerivationView): Account = {
+    val account = Await.result(wallet.addAccountIfNotExist(derivations), Duration.Inf)
+    Await.result(account.sync(poolName, wallet.getName), Duration.Inf)
+    account
+  }
+
 
   @Test def testBitcoinWallet(): Unit = {
     val poolDao = new WalletPoolDao(poolName)
@@ -115,6 +123,28 @@ class WalletPoolDAOTest extends AssertionsForJUnit with Logging {
 
     assert(erc20ByUids.size == 2)
     assert(erc20ByUids.map(_.uid).toSet == erc20OperationViews.map(_.uid).toSet)
+  }
+
+  @Test def testStellarWallet(): Unit = {
+    val poolDao = new WalletPoolDao(poolName)
+    val walletName = "stellar"
+
+    val wallet = createWallet(walletName)
+    val derivations = AccountDerivationView(0, Seq(DerivationView("44'/148'/0'", "main", Some(stellarPubKey1), Some("00"))))
+
+    val account = createAccountAndSync(wallet, derivations)
+
+    val allOperations = TwitterAwait.result(poolDao.listAllOperations(account, wallet, 0, 100))
+    logger.info(s" All operations : ${allOperations.size}")
+
+    val filteredOperations = TwitterAwait.result(
+      poolDao.findOperationsByUids(account, wallet,
+        Seq(
+          "b990bd8b05cdbfb9b4b04bf1708db4e25116751f6ca1207d43ff970752d19dcf",
+          "e484cc391a75f5b6931dc9534276cda0c6d70438f6db9ff193c6e9c28bac893e",
+          "42c6418c9e51a30cceb6ed4456089b3ca6f451e5c42fa5b2586fb356b8cb6a76"
+        ), 0, 100))
+    assert(filteredOperations.size == 3)
   }
 
 }

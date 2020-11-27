@@ -14,6 +14,7 @@ import com.twitter.inject.Logging
 import scala.collection.JavaConverters._
 import scala.collection._
 import scala.concurrent.{ExecutionContext, Future}
+import co.ledger.core.implicits._
 
 object Wallet extends Logging {
 
@@ -119,7 +120,7 @@ object Wallet extends Logging {
     }.recoverWith {
       case e: co.ledger.core.implicits.InvalidArgumentException =>
         Future.failed(CoreBadRequestException(e.getMessage, e))
-      case e: co.ledger.core.implicits.AccountAlreadyExistsException =>
+      case e if e.isInstanceOf[AccountAlreadyExistsException] ||  e.isInstanceOf[IllegalArgumentException] =>
         for {
           _ <- Future(warn(LogMsgMaker.newInstance("Account already exist")
             .append("index", accountIndex).append("wallet_name", w.getName)
