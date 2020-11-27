@@ -27,6 +27,7 @@ class RabbitMQPublisher(rabbitMQUri: String) extends Logging with Publisher {
 
   // Channel is not recommended to be used concurrently, hence synchronized
   private def publish(exchangeName: String, routingKeys: List[String], payload: Array[Byte]): Unit = synchronized {
+    logger.info(s"Publishing for $exchangeName, ${routingKeys.mkString(".")} payload size ${payload.length} bytes")
     if (!declaredExchanges.contains(exchangeName)) {
       chan.exchangeDeclare(exchangeName, BuiltinExchangeType.TOPIC, true)
       declaredExchanges += exchangeName

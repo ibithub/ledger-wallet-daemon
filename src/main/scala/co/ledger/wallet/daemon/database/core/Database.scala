@@ -13,7 +13,10 @@ class Database(config: CoreDbConfig, poolName: String) extends Logging {
 
   def executeQuery[T](query: SQLQuery)(f: Row => T): Future[Seq[T]] = {
     logger.info(s"SQL EXECUTION : $query")
-    client.select[T](query)(f)
+    client.select[T](query)(f).map(seq => {
+      logger.info(s"SQL RESULT : $query \nFound ${seq.size} results $seq")
+      seq
+    })
   }
 
   private def connectionPool = Postgres.Client()
