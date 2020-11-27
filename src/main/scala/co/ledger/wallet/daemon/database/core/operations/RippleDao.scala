@@ -27,21 +27,20 @@ class RippleDao(db: Database) extends CoinDao with Logging {
         s" OFFSET $offset LIMIT $limit"
 
   private val rippleTransactionMemosQuery: Seq[TransactionUid] => OperationUid = (opUids: Seq[TransactionUid]) =>
-    "SELECT rop.uid, tx.array_index, tx.data, tx.fmt, tx.ty " +
-      "FROM ripple_memos " +
-      "JOIN ripple_operations rop ON rop.transaction_uid = rtx.transaction_uid " +
-      s"WHERE tx.uid IN ('${opUids.mkString("','")}') " +
-      "ORDER BY rop.uid ASC, array_index ASC"
-
+    "SELECT rop.uid, mem.array_index, mem.data, mem.fmt, mem.ty " +
+      "FROM ripple_memos mem " +
+      "JOIN ripple_operations rop ON rop.transaction_uid = mem.transaction_uid " +
+      s"WHERE rop.uid IN ('${opUids.mkString("','")}') " +
+      "ORDER BY rop.uid ASC, mem.array_index ASC"
 
   def findRippleMemos(opUids: Seq[OperationUid]): Future[Seq[(OperationUid, RippleMemoView)]] = {
     queryRippleMemos[(OperationUid, RippleMemoView)](opUids) {
       row => {
         val opUid = row.get[String]("uid")
         val memoView = RippleMemoView(
-          row.get[String]("data"),
-          row.get[String]("fmt"),
-          row.get[String]("ty")
+          row.getOption[String]("data").getOrElse(""),
+          row.getOption[String]("fmt").getOrElse(""),
+          row.getOption[String]("ty").getOrElse("")
         )
         (opUid, memoView)
       }
@@ -51,14 +50,14 @@ class RippleDao(db: Database) extends CoinDao with Logging {
   /**
     * List operations from an account
     */
-  def listAllOperations(a: Account, w: Wallet, offset: Int, limit: Int): Future[Seq[OperationView]] = {
+  override def listAllOperations(a: Account, w: Wallet, offset: Int, limit: Int): Future[Seq[OperationView]] = {
     findOperationsByUids(a, w, Seq(), offset, limit)
   }
 
   /**
     * Find Operation
     */
-  def findOperationByUid(a: Account, w: Wallet, uid: OperationUid, offset: Int, limit: Int): Future[Option[OperationView]] = {
+  override def findOperationByUid(a: Account, w: Wallet, uid: OperationUid, offset: Int, limit: Int): Future[Option[OperationView]] = {
     findOperationsByUids(a, w, Seq(uid), offset, limit).map(_.headOption)
 
   }
@@ -96,7 +95,7 @@ class RippleDao(db: Database) extends CoinDao with Logging {
             row.get[String]("value"),
             row.get[Int]("status"),
             BigInt(row.get[String]("sequence")),
-            BigInt(row.get[String]("destination_tag"))
+            row.getOption[String]("destination_tag").map(BigInt(_)).getOrElse(BigInt(0))
           )
         }
       }
@@ -114,7 +113,8 @@ class RippleDao(db: Database) extends CoinDao with Logging {
         val signingPubkey = "" // no use
         val txView = Some(RippleTransactionView(pop.txHash, pop.fees.toString(), pop.receiver, pop.sender, pop.value,
           pop.date, pop.status, pop.sequence.toString(), ledgerSequence, signingPubkey,
-          opMemos.get(pop.uid).get, pop.destination_tag.longValue()))
+          opMemos.getOrElse(pop.uid, List.empty[RippleMemoView]),
+          pop.destination_tag.longValue()))
 
         OperationView(
           pop.uid, currencyName, currencyFamily, None, confirmations,
