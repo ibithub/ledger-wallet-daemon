@@ -235,6 +235,7 @@ class AccountSynchronizer(cache: DaemonCache,
 
   override def preStart(): Unit = {
     super.preStart()
+    log.info(s"AccountSynchronizer for account $accountInfo Starting...")
     restartPublisher()
     self ! Init
   }
@@ -269,7 +270,6 @@ class AccountSynchronizer(cache: DaemonCache,
       timers.cancel(StartSynchronization)
       restartPublisher()
       operationPublisher ! AccountOperationsPublisher.SubscribeToOperationsCount(self)
-
       wipeAllOperations()
         .pipeTo(self)
 
