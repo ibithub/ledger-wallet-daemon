@@ -2,7 +2,7 @@ package co.ledger.wallet.daemon.database.core.operations
 
 import java.util.Date
 
-import co.ledger.core.{Account, OperationType, Wallet}
+import co.ledger.core.{Account, Address, Currency, OperationType, Wallet}
 import co.ledger.wallet.daemon.database.core.Database.SQLQuery
 import co.ledger.wallet.daemon.database.core.Decoder._
 import co.ledger.wallet.daemon.database.core.{Database, Ordering, PartialEthOperation}
@@ -169,8 +169,8 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
           case (Some(hash), Some(height), Some(time)) => Some(CommonBlockView(hash, height, time))
           case _ => None
         }
-        val ethSender = toEIP55Address(row.get[String]("senders"))
-        val ethReceipient = toEIP55Address(row.get[String]("recipients"))
+        val ethSender = toEIP55Address(row.get[String]("senders"), w.getCurrency)
+        val ethReceipient = toEIP55Address(row.get[String]("recipients"), w.getCurrency)
         val amount = BigInt(row.get[String]("amount"), 16)
         OperationView(ethOpUid, currencyName, currencyFamily, None,
           BigInt(row.get[String]("confirmations")).longValue(),
@@ -194,9 +194,11 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
     }
   }
 
-  def toEIP55Address(address: String): String = {
-    // TODO when libcore is exposing it
-    address
+  def toEIP55Address(address: String, currency: Currency): String = {
+    val addr = Address.parse(address, currency)
+    val addrStr = addr.toString
+    addr.destroy()
+    addrStr
   }
 
   /**
