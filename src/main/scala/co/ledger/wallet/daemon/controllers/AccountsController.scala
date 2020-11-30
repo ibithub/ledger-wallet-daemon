@@ -164,7 +164,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
 
       // Synchronize a single account
       post("/operations/synchronize") { request: AccountRequest =>
-        accountsService.synchronizeAccount(request.accountInfo)
+        accountsService.synchronizeAccount(request.accountInfo, request.gap_limit)
       }
 
       // List of utxos available on this account
@@ -318,6 +318,7 @@ object AccountsController {
                              @RouteParam override val pool_name: String,
                              @RouteParam override val wallet_name: String,
                              @RouteParam override val account_index: Int,
+                             @QueryParam val gap_limit: Option[Int],
                              request: Request) extends BaseSingleAccountRequest
 
   case class AccountAddressRequest(

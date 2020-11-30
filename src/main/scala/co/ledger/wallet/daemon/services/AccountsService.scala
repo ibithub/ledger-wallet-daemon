@@ -29,6 +29,7 @@ import javax.inject.{Inject, Singleton}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.util.{Failure, Success}
 
 @Singleton
 class AccountsService @Inject()(daemonCache: DaemonCache) extends DaemonService {
@@ -82,8 +83,36 @@ class AccountsService @Inject()(daemonCache: DaemonCache) extends DaemonService 
     *
     * @return a Future of sequence of result of synchronization.
     */
-  def synchronizeAccount(accountInfo: AccountInfo): Future[Seq[SynchronizationResult]] =
-    daemonCache.withAccount(accountInfo)(_.sync(accountInfo.poolName, accountInfo.walletName).map(Seq(_)))
+  def synchronizeAccount(accountInfo: AccountInfo, gapLimit: Option[Int]): Future[Seq[SynchronizationResult]] =
+    gapLimit match {
+      case Some(customLimit) =>
+        daemonCache.withAccountAndWalletAndPool(accountInfo) {
+          case (account, wallet, pool) =>
+            // Retrieve wallet with custom config
+            pool.updateWalletConfig(wallet, gapLimit = customLimit).map(
+              customWallet =>
+                (for {
+                  // Do the sync from custom wallet
+                  acnt <- customWallet.account(account.getIndex)
+                  syncResult <- acnt.map(_.sync(accountInfo.poolName, accountInfo.walletName)).sequence
+                } yield {
+                  Seq(syncResult.getOrElse(
+                    SynchronizationResult(accountInfo.accountIndex, accountInfo.walletName,
+                      accountInfo.poolName, syncResult = false)))
+                }).transformWith {
+                  // Log result and restore Wallet Config
+                  case Success(syncResult) =>
+                    logger.info(s"Sync successfully achieved on $accountInfo, restore wallet config")
+                    pool.updateWalletConfig(wallet)
+                      .map(_ => syncResult)
+                  case Failure(exception) =>
+                    logger.error(s"Sync failed on $accountInfo, restore wallet config", exception)
+                    pool.updateWalletConfig(wallet).flatMap(_ => Future.failed[Seq[SynchronizationResult]](exception))
+                }
+            )
+        }.flatten
+      case None => daemonCache.withAccount(accountInfo)(_.sync(accountInfo.poolName, accountInfo.walletName).map(Seq(_)))
+    }
 
   def getAccount(accountInfo: AccountInfo): Future[Option[core.Account]] = daemonCache.getAccount(accountInfo: AccountInfo)
 
@@ -248,13 +277,14 @@ class AccountsService @Inject()(daemonCache: DaemonCache) extends DaemonService 
         }
     }
   }
+
   def latestOperations(accountInfo: AccountInfo, latests: Int): Future[Seq[OperationView]] = {
     daemonCache.withAccountAndWallet(accountInfo) {
       case (account, wallet) =>
         account.latestOperations(latests)
           .flatMap(ops => Future.sequence(
             ops.map(Operations.getView(_, wallet, account)))
-        )
+          )
     }
   }
 

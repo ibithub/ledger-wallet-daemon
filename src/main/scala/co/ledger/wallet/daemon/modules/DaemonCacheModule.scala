@@ -35,7 +35,7 @@ object DaemonCacheModule extends TwitterModule {
 
     def synchronizationTask(): Unit = {
       try {
-        Await.result(poolsService.syncOperations, 1.hour).foreach{
+        Await.result(poolsService.syncOperations, 1.hour).foreach {
           case Success(r) =>
             if (r.syncResult) {
               info(s"Synchronization complete for $r")
@@ -86,7 +86,7 @@ object DaemonCacheModule extends TwitterModule {
       users <- provideDaemonCache.getUsers
       pools <- Future.traverse(users)(_.pools()).map(_.flatten)
       poolWallets <- Future.traverse(pools)(pool => pool.wallets.map((pool, _)))
-      _ <- Future.sequence(poolWallets.flatMap { case (pool, wallets) => wallets.map(pool.updateWalletConfig) })
+      _ <- Future.sequence(poolWallets.flatMap { case (pool, wallets) => wallets.map(pool.updateWalletConfig(_)) })
     } yield ()
   }
 }

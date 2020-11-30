@@ -138,12 +138,12 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
     }
   }
 
-  def updateWalletConfig(wallet: core.Wallet): Future[core.Wallet] = {
+  def updateWalletConfig(wallet: core.Wallet, gapLimit: Int = 20): Future[core.Wallet] = {
     val isNativeSegwit = Try(wallet.getConfiguration.getString("KEYCHAIN_ENGINE"))
       .map(_ == "BIP173_P2WPKH")
       .getOrElse(false)
 
-    buildWalletConfig(wallet.getCurrency, isNativeSegwit) match {
+    buildWalletConfig(wallet.getCurrency, isNativeSegwit, gapLimit) match {
       case Success(walletConfig) =>
         info(LogMsgMaker.newInstance("Updating wallet")
           .append("pool_name", name)
@@ -157,7 +157,7 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
             .append("result", result)
             .toString())
           result match {
-            case ErrorCode.FUTURE_WAS_SUCCESSFULL => Future.successful(wallet)
+            case ErrorCode.FUTURE_WAS_SUCCESSFULL => coreP.getWallet(wallet.getName)
             case _ => Future.failed(WalletNotFoundException(wallet.getName))
           }
         }
@@ -219,7 +219,7 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
 
   override def toString: String = s"Pool(name: $name, id: $id)"
 
-  private def buildWalletConfig(currency: core.Currency, isNativeSegwit: Boolean): Try[core.DynamicObject] = {
+  private def buildWalletConfig(currency: core.Currency, isNativeSegwit: Boolean, gapLimit: Int = 20): Try[core.DynamicObject] = {
     val currencyName = currency.getName
     val hasNativeSegwitSupport = DaemonConfiguration.supportedNativeSegwitCurrencies.contains(currencyName)
 
@@ -237,6 +237,9 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
           new URL(s"${path.host}:${path.port}")
         case None => new URL(s"${ConfigurationDefaults.BLOCKCHAIN_DEFAULT_API_ENDPOINT}")
       }
+
+      // Set gap Limit
+      walletConfig.putInt("KEYCHAIN_OBSERVABLE_RANGE", gapLimit)
 
       // Waiting for LLC-636 to be unified
       if (currencyName == "ripple") {
