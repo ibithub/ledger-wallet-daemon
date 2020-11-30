@@ -17,7 +17,7 @@ object LibCoreMetrics {
 
     allocations.map(e => AllocationMetric(e._1, e._2))
       .toList
-      .filter(_.numberOfInstances >= 1000)
+      .filter(_.numberOfInstances >= 50)
       .sortBy(_.numberOfInstances)
   }
 }
