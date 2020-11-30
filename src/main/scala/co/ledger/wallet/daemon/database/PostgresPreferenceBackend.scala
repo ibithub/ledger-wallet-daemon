@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.util
 
 import co.ledger.core.{PreferencesBackend, PreferencesChange, PreferencesChangeType, RandomNumberGenerator}
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.context.ApplicationContext.databaseEc
 import com.google.common.cache.{CacheBuilder, CacheLoader, LoadingCache}
 import com.twitter.inject.Logging
 import javax.inject.Inject

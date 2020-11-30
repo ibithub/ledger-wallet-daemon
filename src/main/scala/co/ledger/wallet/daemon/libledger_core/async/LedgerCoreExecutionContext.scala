@@ -4,6 +4,7 @@ import java.util.concurrent._
 import java.util.{Timer, TimerTask}
 
 import co.ledger.core
+import co.ledger.wallet.daemon.context.ApplicationContext
 import com.twitter.concurrent.NamedPoolThreadFactory
 import com.twitter.inject.Logging
 
@@ -36,23 +37,16 @@ class LogOnlyPolicy(label: String) extends RejectedExecutionHandler with Logging
 
 object LedgerCoreExecutionContext extends Logging {
   val maxCoreSerialCtx = 12 // TODO make it configurable
-  private val serialExecutionContexts: Seq[LedgerCoreExecutionContext] = (0 until maxCoreSerialCtx).map(createSerialExecutionContext)
+  private val serialExecutionContexts: Seq[LedgerCoreExecutionContext] = (0 until maxCoreSerialCtx).map(_ => createSerialExecutionContext())
 
-  def createSerialExecutionContext(idx: Int): LedgerCoreExecutionContext = {
-    LedgerCoreExecutionContext(ExecutionContext.fromExecutorService(new ThreadPoolExecutor(1, 1, 60L, TimeUnit.SECONDS,
-      new LinkedBlockingDeque[Runnable](100000),
-      new NamedPoolThreadFactory(s"Serial-CorePool-$idx"),
-      new LogOnlyPolicy(s"Serial-CorePool-$idx"))))
+  def createSerialExecutionContext(): LedgerCoreExecutionContext = {
+    LedgerCoreExecutionContext(ExecutionContext.fromExecutor(
+      Executors.newSingleThreadExecutor(new NamedPoolThreadFactory("libcore-serial"))))
   }
 
   def apply(ec: ExecutionContext): LedgerCoreExecutionContext = new LedgerCoreExecutionContext(ec)
 
-  lazy private[this] val opPool: ExecutionContext =
-    ExecutionContext.fromExecutorService(
-      new ThreadPoolExecutor(16, 16, 60L, TimeUnit.SECONDS,
-        new LinkedBlockingDeque[Runnable](100000),
-        new NamedPoolThreadFactory("CPU-CorePool"),
-        new LogOnlyPolicy("CPU-CorePool")))
+  lazy private[this] val opPool: ExecutionContext = ApplicationContext.libcoreEc
 
   def operationPool: LedgerCoreExecutionContext = apply(opPool)
 
@@ -60,22 +54,5 @@ object LedgerCoreExecutionContext extends Logging {
     serialExecutionContexts(Math.abs(name.hashCode) % maxCoreSerialCtx)
   }
 
-  /*
-  def newSerialQueue(prefix: String): LedgerCoreExecutionContext = apply(
-    ExecutionContext.fromExecutorService(
-      new ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue[Runnable],
-        new ThreadFactory {
-          override def newThread(r: Runnable): Thread = new Thread(r, s"Serial-CorePool-$prefix")
-        }
-      )
-    ))
-*/
-  def httpPool: ExecutionContext =
-    ExecutionContext.fromExecutorService(new ThreadPoolExecutor(16, 16, 60L, TimeUnit.SECONDS,
-      new LinkedBlockingDeque[Runnable](100000),
-      new NamedPoolThreadFactory("HTTP-CorePool"),
-      new LogOnlyPolicy("HTTP-CorePool")))
-
-
-  // ExecutionContext.fromExecutor(Executors.newCachedThreadPool((r: Runnable) => new Thread(r, "libcore-http-client")))
+  def httpPool: ExecutionContext = ApplicationContext.httpEc
 }
