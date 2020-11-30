@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.services
 
 import java.util.Date
-import java.util.concurrent.{ConcurrentHashMap, Executors}
+import java.util.concurrent.ConcurrentHashMap
 
 import akka.actor.Status.Failure
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Timers}
@@ -27,7 +27,7 @@ import javax.inject.{Inject, Singleton}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Success
 import scala.util.control.NonFatal
@@ -42,9 +42,8 @@ import scala.util.control.NonFatal
 class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, synchronizerFactory: AccountSyncModule.AccountSynchronizerFactory, scheduler: Timer)
   extends DaemonService {
 
+  import co.ledger.wallet.daemon.context.ApplicationContext.synchronizationPool
   import com.twitter.util.Duration
-
-  implicit val synchronizationPool: ExecutionContextExecutorService = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(4 * Runtime.getRuntime.availableProcessors()))
 
   // When we start ASM, we register the existing accountsSuccess
   // We periodically try to register account just in case there is new account created

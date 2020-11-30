@@ -2,8 +2,8 @@ package co.ledger.wallet.daemon.database
 
 import java.sql.Timestamp
 import java.util.Date
-import java.util.concurrent.Executors
 
+import co.ledger.wallet.daemon.context.ApplicationContext.databaseEc
 import co.ledger.wallet.daemon.database.DBMigrations.Migrations
 import co.ledger.wallet.daemon.exceptions._
 import com.twitter.inject.Logging
@@ -11,15 +11,14 @@ import javax.inject.{Inject, Singleton}
 import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.TransactionIsolation
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 @Singleton
 class DatabaseDao @Inject()(db: Database) extends Logging {
+
   import Tables._
   import Tables.profile.api._
-  implicit lazy val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool(
-    (r: Runnable) => new Thread(r, "database-access")
-  ))
+
 
   def migrate(): Future[Unit] = {
     info("Start database migration")
@@ -27,25 +26,25 @@ class DatabaseDao @Inject()(db: Database) extends Logging {
     db.run(lastMigrationVersion.transactionally) recover {
       case _ => -1
     } flatMap { currentVersion => {
-        info(s"Current database version at $currentVersion")
-        val maxVersion = Migrations.keys.toArray.sortWith(_ > _).head
+      info(s"Current database version at $currentVersion")
+      val maxVersion = Migrations.keys.toArray.sortWith(_ > _).head
 
-        def migrate(version: Int, maxVersion: Int): Future[Unit] = {
-          if (version > maxVersion) {
-            info(s"Database version up to date at $maxVersion")
-            Future.unit
-          } else {
-            info(s"Migrating version $version / $maxVersion")
-            val rollbackMigrate = DBIO.seq(Migrations(version), insertDatabaseVersion(version))
-            db.run(rollbackMigrate.transactionally).flatMap { _ =>
-              info(s"version $version / $maxVersion migration done")
-              migrate(version + 1, maxVersion)
-            }
+      def migrate(version: Int, maxVersion: Int): Future[Unit] = {
+        if (version > maxVersion) {
+          info(s"Database version up to date at $maxVersion")
+          Future.unit
+        } else {
+          info(s"Migrating version $version / $maxVersion")
+          val rollbackMigrate = DBIO.seq(Migrations(version), insertDatabaseVersion(version))
+          db.run(rollbackMigrate.transactionally).flatMap { _ =>
+            info(s"version $version / $maxVersion migration done")
+            migrate(version + 1, maxVersion)
           }
         }
-
-        migrate(currentVersion + 1, maxVersion)
       }
+
+      migrate(currentVersion + 1, maxVersion)
+    }
     }
   }
 
@@ -61,10 +60,10 @@ class DatabaseDao @Inject()(db: Database) extends Logging {
   }
 
   def getAllPools: Future[Seq[PoolDto]] =
-    safeRun(pools.sortBy(_.id.desc).result).map { rows => rows.map(createPool)}
+    safeRun(pools.sortBy(_.id.desc).result).map { rows => rows.map(createPool) }
 
   def getPoolByName(poolName: String): Future[Option[PoolDto]] =
-    safeRun(pools.filter(pool => pool.name === poolName).result.headOption).map { row => row.map(createPool)}
+    safeRun(pools.filter(pool => pool.name === poolName).result.headOption).map { row => row.map(createPool) }
 
   def insertPool(newPool: PoolDto): Future[Long] = {
     safeRun(filterPool(newPool.name).exists.result.flatMap { exists =>
