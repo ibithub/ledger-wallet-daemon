@@ -2,7 +2,7 @@ package co.ledger.wallet.daemon.api
 
 import co.ledger.core._
 import co.ledger.wallet.daemon.controllers.TransactionsController.CreateXTZTransactionRequest
-import co.ledger.wallet.daemon.models.FreshAddressView
+import co.ledger.wallet.daemon.models.{DelegationView, FreshAddressView}
 import co.ledger.wallet.daemon.models.Operations.OperationView
 import co.ledger.wallet.daemon.models.coins.UnsignedTezosTransactionView
 import co.ledger.wallet.daemon.services.{OperationQueryParams, SyncStatus}
@@ -159,6 +159,22 @@ class XTZAccountsApiTest extends APIFeatureTest {
     info(s"Here is transaction view : $normalSpeedTransactionView")
     assert(normalSpeedTransactionView.fees.contains("200"))
     assert(normalSpeedTransactionView.operationType == TezosOperationTag.OPERATION_TAG_DELEGATION)
+  }
+
+  test("Get XTZ empty current delegation") {
+    val walletName = "xtzWalletForEmptyCurrentDelegation"
+    assertWalletCreation(poolName, walletName, "tezos", Status.Ok)
+    assertCreateAccount(CORRECT_BODY_XTZ, poolName, walletName, Status.Ok)
+    val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, index = 0, Status.Ok))
+    assert(addresses.nonEmpty)
+    info(s"Here are addresses : $addresses")
+    assertSyncAccount(poolName, walletName, 0)
+    val operations = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 1000, 0), Status.Ok))
+    assert(operations.nonEmpty)
+
+    val delegations = parse[Seq[DelegationView]](assertGetAccountDelegation(poolName, walletName, 0, Status.Ok))
+    info(s"Here is delegation view : $delegations")
+    assert(delegations.isEmpty)
   }
 
   ignore("Create XTZ transaction to self") {

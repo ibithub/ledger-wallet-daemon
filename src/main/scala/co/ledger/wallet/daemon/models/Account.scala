@@ -11,6 +11,7 @@ import co.ledger.core._
 import co.ledger.core.implicits.{InvalidEIP55FormatException, NotEnoughFundsException, UnsupportedOperationException, _}
 import co.ledger.wallet.daemon.clients.ApiClient.{XlmFeeInfo, XtzFeeInfo}
 import co.ledger.wallet.daemon.clients.ClientFactory
+import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.controllers.TransactionsController._
 import co.ledger.wallet.daemon.exceptions._
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
@@ -21,7 +22,6 @@ import co.ledger.wallet.daemon.schedulers.observers.{SynchronizationEventReceive
 import co.ledger.wallet.daemon.services.SyncStatus
 import co.ledger.wallet.daemon.utils.HexUtils
 import co.ledger.wallet.daemon.utils.Utils.{RichBigInt, RichCoreBigInt}
-import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.google.common.primitives.UnsignedInteger
 import com.twitter.inject.Logging
@@ -31,7 +31,6 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 object Account extends Logging {
-
   implicit class RichCoreAccount(val a: core.Account) extends AnyVal {
     def erc20Balance(contract: String)(implicit ec: ExecutionContext): Future[scala.BigInt] = {
       Account.erc20Balance(contract, a)
@@ -130,6 +129,9 @@ object Account extends Logging {
 
     def sync(poolName: String, walletName: String)(implicit ec: ExecutionContext): Future[SynchronizationResult] =
       Account.sync(poolName, walletName, a)
+
+    def getDelegations()(implicit ec: ExecutionContext): Future[Seq[DelegationView]] =
+      Account.getDelegation(a)
   }
 
   def balance(a: core.Account)(implicit ex: ExecutionContext): Future[scala.BigInt] = a.getBalance().map { b =>
@@ -668,6 +670,18 @@ object Account extends Logging {
   def newDerivation(coreD: core.AccountCreationInfo): Derivation = {
     new Derivation(coreD)
   }
+
+  def getDelegation(a: Account)(implicit ec: ExecutionContext): Future[Seq[DelegationView]] = {
+    a.getWalletType match {
+      case WalletType.TEZOS => a.asTezosLikeAccount().getCurrentDelegate()
+        .filter(address => !address.isEmpty)
+        .map(DelegationView.fromDelegatedAddress)
+        .map(List(_))
+        .recover { case _: java.util.NoSuchElementException => List[DelegationView]() }
+      case _ => Future.successful(List())
+    }
+  }
+
 }
 
 case class AccountView(
@@ -767,3 +781,13 @@ case class UTXOView(
                      @JsonProperty("confirmations") confirmations: Long,
                      @JsonProperty("amount") amount: scala.BigInt
                    )
+
+case class DelegationView(
+                           @JsonProperty("address") address: String
+                         )
+
+object DelegationView {
+  def fromDelegatedAddress(address: String): DelegationView = {
+    DelegationView(address)
+  }
+}

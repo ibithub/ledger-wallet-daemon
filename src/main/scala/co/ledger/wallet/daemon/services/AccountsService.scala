@@ -347,6 +347,12 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
     }
   }
 
+  def getDelegations(accountInfo: AccountInfo): Future[Seq[DelegationView]] = {
+    daemonCache.withAccountAndWallet(accountInfo) {
+      case (account, _) => account.getDelegations()
+    }
+  }
+
   private def checkSyncStatus(account: AccountInfo) = {
     synchronizerManager.getSyncStatus(account).foreach {
       case Resyncing(targetHeight, currentHeight) => throw ResyncOnGoingException(targetHeight, currentHeight)

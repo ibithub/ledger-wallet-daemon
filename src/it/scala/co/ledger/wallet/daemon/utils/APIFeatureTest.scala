@@ -152,6 +152,14 @@ trait APIFeatureTest extends FeatureTest with Mockito {
     )
   }
 
+  protected def assertGetAccountDelegation(poolName: String, walletName: String, accountIndex: Int, expected: Status): Response = {
+    server.httpGet(
+      s"/pools/$poolName/wallets/$walletName/accounts/$accountIndex/delegations",
+      headers = defaultHeaders,
+      andExpect = expected
+    )
+  }
+
   protected def assertCreateTransaction(tx: String, poolName: String, walletName: String, accountIndex: Int, expected: Status): Response = {
     server.httpPost(
       s"/pools/$poolName/wallets/$walletName/accounts/$accountIndex/transactions",

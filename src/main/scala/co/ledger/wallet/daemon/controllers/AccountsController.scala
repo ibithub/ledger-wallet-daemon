@@ -208,6 +208,10 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
       get("/tokens/:token_address/operations") { request: TokenAccountRequest =>
         accountsService.getBatchedERC20Operations(request.tokenAccountInfo, request.offset, request.batch)
       }
+
+      get("/delegations") { request: AccountRequest =>
+        accountsService.getDelegations(request.accountInfo)
+      }
     }
   }
 
