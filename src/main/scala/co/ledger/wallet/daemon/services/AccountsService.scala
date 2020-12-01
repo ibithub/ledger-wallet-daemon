@@ -297,6 +297,12 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
     }
   }
 
+  def getDelegations(accountInfo: AccountInfo): Future[Seq[DelegationView]] = {
+    daemonCache.withAccountAndWallet(accountInfo) {
+      case (account, _) => account.getDelegations()
+    }
+  }
+
   private def checkSyncStatus[T](account: AccountInfo)(block: => Future[T]): Future[T] = {
     val status = synchronizerManager.getSyncStatus(account)
     status.flatMap {

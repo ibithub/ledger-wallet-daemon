@@ -60,7 +60,6 @@ trait APIFeatureTest extends FeatureTest with Mockito {
 
   def assertSyncAccount(poolName: String, walletName: String, accIdx: Int): Response = {
     val resp = server.httpPost(s"/pools/$poolName/wallets/$walletName/accounts/$accIdx/operations/synchronize", "", andExpect = Status.Ok)
-    awaitSync(poolName, walletName, accIdx)
     resp
   }
 
@@ -141,17 +140,11 @@ trait APIFeatureTest extends FeatureTest with Mockito {
     )
   }
 
-  protected def awaitSync(poolName: String, walletName: String, accIdx: Int) = {
-
-    def isSynced = server.httpGet(s"/pools/$poolName/wallets/$walletName/accounts/$accIdx/sync-status", "", andExpect = Status.Ok)
-      .contentString.contains("synced")
-
-    var attempt = 240
-    while (!isSynced && attempt > 0) {
-      attempt -= 1
-      Thread.sleep(500)
-    }
-
+  protected def assertGetAccountDelegation(poolName: String, walletName: String, accountIndex: Int, expected: Status): Response = {
+    server.httpGet(
+      s"/pools/$poolName/wallets/$walletName/accounts/$accountIndex/delegations",
+      andExpect = expected
+    )
   }
 
   protected def assertCreateTransaction(tx: String, poolName: String, walletName: String, accountIndex: Int, expected: Status): Response = {
