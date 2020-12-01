@@ -37,16 +37,12 @@ object DaemonConfiguration extends Logging {
    */
   private val RIPPLE_LAST_LEDGER_SEQUENCE_OFFSET: Int = 10512000
 
-  val proxy: Option[Proxy] = {
-    if (config.getBoolean("proxy.enabled")) {
-      val p = Proxy(config.getString("proxy.host"), config.getInt("proxy.port"))
-      info(s"[Proxy] - ${p.host}:${p.port}")
-      Some(p)
-    } else {
-      info("[Proxy] - Disabled")
-      None
-    }
+  val proxy: Proxy = {
+    val p = Proxy(config.getString("proxy.host"), config.getInt("proxy.port"))
+    info(s"[Proxy Configuration] - ${p.host}:${p.port} - enabled = ${config.getBoolean("proxy.enabled")}")
+    p
   }
+
 
   val supportedNativeSegwitCurrencies: List[String] = if (config.hasPath("native_segwit_currencies")) {
     config.getStringList("native_segwit_currencies").asScala.toList
@@ -152,7 +148,7 @@ object DaemonConfiguration extends Logging {
     dbPwd <- Try(config.getString("postgres.password"))
     dbPrefix <- Try(config.getString("postgres.core.db_name_prefix"))
     maxCnx <- Try(config.getInt("postgres.core.pool_size"))
-  } yield CoreDbConfig(dbHost, dbPort, dbUserName, dbPwd, dbPrefix, maxCnx ))
+  } yield CoreDbConfig(dbHost, dbPort, dbUserName, dbPwd, dbPrefix, maxCnx))
     .get // We have to fail fast if configuration is missing
 
   // The core pool operation size
@@ -212,7 +208,7 @@ object DaemonConfiguration extends Logging {
       val port = path.getInt("port")
       val url = new URL(s"$host:$port")
       // Use proxy if proxy is enabled globally and proxyuse is true or undefined
-      val proxyUse = Try(path.getBoolean("proxyuse")).getOrElse(true) && proxy.isDefined
+      val proxyUse = Try(path.getBoolean("proxyuse")).getOrElse(true)
       NetUtils.urlToHost(url) -> proxyUse
     }.toMap
 
@@ -244,6 +240,17 @@ object DaemonConfiguration extends Logging {
 
   val rabbitMQUri: Try[String] = Try(config.getString("rabbitmq.uri"))
 
+  val IS_DD_ENABLED: Boolean = config.getString("datadog.agent_host") match {
+    case "" => false
+    case _ => true
+  }
+
+  val DD_HOST: String = config.getString("datadog.agent_host")
+  val DD_PORT: String = config.getString("datadog.agent_port")
+
+  val DD_TRACE_PREFIX: String = config.getString("datadog.ddtrace_prefix")
+  val DD_TRACE_PORT: Int = config.getInt("datadog.ddtrace_port")
+
   case class ApiConfig(fallbackTimeout: Int, paths: Map[String, PathConfig], proxyUse: Map[Host, Boolean])
 
   case class PathConfig(host: String, port: Int, disableSyncToken: Boolean, fallback: Option[String], explorerVersion: Option[String], feesPath: Option[FeesPath])
@@ -264,4 +271,5 @@ object DaemonConfiguration extends Logging {
   case class SynchronizationConfig(delay: Int, frequency: Int)
 
   case class CoreDbConfig(dbHost: String, dbPort: String, dbUserName: String, dbPwd: String, dbPrefix: String, cnxPoolSize: Int)
+
 }

@@ -1,5 +1,6 @@
 package co.ledger.wallet.daemon
 
+import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.controllers._
 import co.ledger.wallet.daemon.filters._
 import co.ledger.wallet.daemon.mappers._
@@ -7,8 +8,9 @@ import co.ledger.wallet.daemon.modules.{DaemonCacheModule, DaemonJacksonModule, 
 import co.ledger.wallet.daemon.services.AccountSyncModule
 import co.ledger.wallet.daemon.utils.NativeLibLoader
 import com.google.inject.Module
-import com.twitter.finagle.http.{Request, Response}
+import com.timgroup.statsd.NonBlockingStatsDClientBuilder
 import com.twitter.finagle.Http
+import com.twitter.finagle.http.{Request, Response}
 import com.twitter.finatra.http.HttpServer
 import com.twitter.finatra.http.filters.{AccessLoggingFilter, CommonFilters, LoggingMDCFilter, TraceIdMDCFilter}
 import com.twitter.finatra.http.routing.HttpRouter
@@ -53,5 +55,14 @@ class ServerImpl extends HttpServer {
   override protected def warmup(): Unit = {
     super.warmup()
     NativeLibLoader.loadLibs()
+    if (DaemonConfiguration.IS_DD_ENABLED) {
+      logger.info(s"[DATADOG AGENT] Enabled : DD_HOST=${DaemonConfiguration.DD_HOST}, " +
+        s"DD_PORT=${DaemonConfiguration.DD_PORT}, " +
+        s"DD_TRACE_PREFIX=${DaemonConfiguration.DD_TRACE_PREFIX}, " +
+        s"DD_TRACE_PORT=${DaemonConfiguration.DD_TRACE_PORT}")
+      new NonBlockingStatsDClientBuilder().prefix(DaemonConfiguration.DD_TRACE_PREFIX).hostname(DaemonConfiguration.DD_HOST).port(DaemonConfiguration.DD_TRACE_PORT).build()
+    } else {
+      logger.info("[DATADOG AGENT] Disabled")
+    }
   }
 }
