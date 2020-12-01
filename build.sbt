@@ -169,5 +169,6 @@ lazy val root = (project in file("."))
 
 libraryDependencies ++= Seq(
   compilerPlugin("com.github.ghik" %% "silencer-plugin" % "1.3.1"),
-  "com.github.ghik" %% "silencer-lib" % "1.3.1" % Provided
+  "com.github.ghik" %% "silencer-lib" % "1.3.1" % Provided,
+  "com.datadoghq" % "java-dogstatsd-client" % "2.10.1"
 )

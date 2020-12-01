@@ -12,11 +12,14 @@ RUN ./docker/build.sh
 
 #### RUN STEP ###
 FROM openjdk:8u272-jre-slim-buster
-
+ARG docker_tag
 
 ENV HTTP_PORT 9200
 ENV ADMIN_PORT 0
 ENV STAGE dev
+
+ENV DD_SERVICE=wallet-daemon
+ENV DD_VERSION=$docker_tag
 
 WORKDIR /app
 COPY --from=builder /build/target/universal/stage .

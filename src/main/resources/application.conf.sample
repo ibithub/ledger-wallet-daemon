@@ -541,3 +541,18 @@ synchronization {
     }
 }
 
+datadog {
+  agent_host = ""
+  agent_host = ${?DD_AGENT_HOST}
+  agent_port = 8126
+  agent_port = ${?DD_AGENT_PORT}
+  ddtrace_prefix = "statsd"
+  ddtrace_port = 8125
+  ddtrace_port = ${?DD_TRACE_PORT}
+  logs_injection = true
+  logs_injection = ${?DD_LOGS_INJECTION}
+  profiling_enabled = true
+  profiling_enabled = ${?DD_PROFILING_ENABLED}
+  jms_fetch_enabled = true
+  jms_fetch_enabled = ${?DD_JMXFETCH_ENABLED}
+}
