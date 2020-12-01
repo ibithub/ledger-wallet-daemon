@@ -92,9 +92,9 @@ object ScalaHttpClientPool extends Logging {
   def proxyFor(host: Host): Option[DaemonConfiguration.Proxy] = {
     DaemonConfiguration.explorer.api.proxyUse.get(host) match {
       case Some(false) =>
-        info(s"No proxy for $host")
+        info(s"No Proxy will be used for $host")
         None
-      case _ => DaemonConfiguration.proxy
+      case _ => Some(DaemonConfiguration.proxy)
     }
   }
 }
