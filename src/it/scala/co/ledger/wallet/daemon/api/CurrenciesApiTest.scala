@@ -10,10 +10,54 @@ import com.twitter.finagle.http.{Response, Status}
 
 class CurrenciesApiTest extends APIFeatureTest {
 
+  private val CURRENCY_POOL = "default_test_pool"
+  private val CURRENCY_BTC = "bitcoin"
+  private val CURRENCY_BTC_TESTNET = "bitcoin_testnet"
+  private val CURRENCY_NON_EXIST = "currency_non_exist"
+  private val CURRENCY_NON_EXIST_POOL = "non_exist_pool"
+  private val EXPECTED_BTC_TESTNET = CurrencyView(
+    "bitcoin_testnet", core.WalletType.BITCOIN, 1, "bitcoin",
+    List(
+      UnitView("satoshi", "satoshi", "satoshi", 0),
+      UnitView("bitcoin", "BTC", "BTC", 8),
+      UnitView("milli-bitcoin", "mBTC", "mBTC", 5),
+      UnitView("micro-bitcoin", "μBTC", "μBTC", 2),
+    ),
+    BitcoinNetworkParamsView("btc_testnet", "6F", "C4", "043587CF", "PER_BYTE", 546, "Bitcoin signed message:\n",
+      usesTimeStampedTransaction = false, hasNativeSegwitSupport = true)
+  )
+  private val EXPECTED_BTC_CURRENCY = CurrencyView(
+    "bitcoin", core.WalletType.BITCOIN, 0, "bitcoin",
+    List(
+      UnitView("satoshi", "satoshi", "satoshi", 0),
+      UnitView("bitcoin", "BTC", "BTC", 8),
+      UnitView("milli-bitcoin", "mBTC", "mBTC", 5),
+      UnitView("micro-bitcoin", "μBTC", "μBTC", 2),
+    ),
+    BitcoinNetworkParamsView("btc", "00", "05", "0488B21E", "PER_BYTE", 546, "Bitcoin signed message:\n",
+      usesTimeStampedTransaction = false, hasNativeSegwitSupport = true)
+  )
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    createPool(CURRENCY_POOL)
+  }
+
+  override def afterAll(): Unit = {
+    deletePool(CURRENCY_POOL)
+    super.afterAll()
+  }
+
   test("CurrenciesApi#Get currency with given pool name and currency name returns OK") {
     val response: Response = assertCurrency(CURRENCY_POOL, CURRENCY_BTC, Status.Ok)
     val currency: CurrencyView = parse[CurrencyView](response)
     assert(currency == EXPECTED_BTC_CURRENCY)
+  }
+
+  test("CurrenciesApi#Get currency btc testnet with given pool name and currency name returns OK") {
+    val response: Response = assertCurrency(CURRENCY_POOL, CURRENCY_BTC_TESTNET, Status.Ok)
+    val currency: CurrencyView = parse[CurrencyView](response)
+    assert(currency == EXPECTED_BTC_TESTNET)
   }
 
   test("CurrenciesApi#Validate address for a given currency should return OK") {
@@ -57,47 +101,4 @@ class CurrenciesApiTest extends APIFeatureTest {
   private def assertCurrencies(poolName: String, expected: Status): Response = {
     server.httpGet(s"/pools/$poolName/currencies", andExpect = expected)
   }
-
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-    createPool(CURRENCY_POOL)
-  }
-
-  override def afterAll(): Unit = {
-    deletePool(CURRENCY_POOL)
-    super.afterAll()
-  }
-
-  private val CURRENCY_POOL = "currency_pool"
-  private val CURRENCY_BTC = "bitcoin"
-  private val CURRENCY_NON_EXIST = "currency_non_exist"
-  private val CURRENCY_NON_EXIST_POOL = "non_exist_pool"
-//  private val EXPECTED_BTC_TESTNET = CurrencyView(
-//    "bitcoin_testnet",
-//    core.WalletType.BITCOIN,
-//    1,
-//    "bitcoin",
-//    List(
-//      UnitView("testnet satoshi","satoshi","satoshi",0),
-//      UnitView("testnet bitcoin", "BTC", "BTC", 8),
-//      UnitView("testnet milli-bitcoin","mBTC", "mBTC", 5),
-//      UnitView("testnet micro-bitcoin", "μBTC", "μBTC", 2),
-//    ),
-//    BitcoinNetworkParamsView("btc_testnet", "6F", "C4", "043587CF", "PER_BYTE", 546, "Bitcoin signed message:\n", false)
-//  )
-  private val EXPECTED_BTC_CURRENCY = CurrencyView(
-    "bitcoin",
-    core.WalletType.BITCOIN,
-    0,
-    "bitcoin",
-    List(
-      UnitView("satoshi","satoshi","satoshi",0),
-      UnitView("bitcoin", "BTC", "BTC", 8),
-      UnitView("milli-bitcoin","mBTC", "mBTC", 5),
-      UnitView("micro-bitcoin", "μBTC", "μBTC", 2),
-      ),
-    BitcoinNetworkParamsView("btc", "00", "05", "0488B21E", "PER_BYTE", 546, "Bitcoin signed message:\n", false, true)
-  )
-
 }
-

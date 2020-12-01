@@ -9,7 +9,28 @@ import org.junit.{BeforeClass, Test}
 import org.scalatest.junit.AssertionsForJUnit
 import slick.jdbc.JdbcBackend.Database
 
-class PostgresPreferenceBackendTest extends Logging with AssertionsForJUnit{
+object PostgresPreferenceBackendTest extends Logging {
+  @BeforeClass
+  def initialization(): Unit = {
+    preferenceBackend.init()
+  }
+
+  private val poolName = "default_test_pool"
+  private val config = ConfigFactory.load()
+  private val dbPort = config.getString("postgres.port")
+  private val dbHost = config.getString("postgres.host")
+  private val dbUserName = config.getString("postgres.username")
+  private val dbPwd = config.getString("postgres.password")
+  private val dbPrefix = config.getString("postgres.core.db_name_prefix")
+  private val dbName = dbPrefix + poolName
+
+  private val db = Database.forURL(
+    s"jdbc:postgresql://$dbHost:$dbPort/$dbName?user=$dbUserName&password=$dbPwd"
+  )
+  val preferenceBackend = new PostgresPreferenceBackend(db)
+}
+
+class PostgresPreferenceBackendTest extends Logging with AssertionsForJUnit {
   import PostgresPreferenceBackendTest._
 
   @Test def saveReadDeletePreference(): Unit = {
@@ -41,7 +62,7 @@ class PostgresPreferenceBackendTest extends Logging with AssertionsForJUnit{
       ("key7".toCharArray.map(_.toByte), "value7".toCharArray.map(_.toByte)),
     )
     val params = new util.ArrayList[PreferencesChange]()
-    keyValues.foreach{
+    keyValues.foreach {
       case (key, value) =>
         val p = new PreferencesChange(PreferencesChangeType.PUT_TYPE, key, value)
         params.add(p)
@@ -62,23 +83,4 @@ class PostgresPreferenceBackendTest extends Logging with AssertionsForJUnit{
     assert(result == null, "get non existing key should return null")
   }
 
-}
-
-object PostgresPreferenceBackendTest extends Logging {
-  private val config = ConfigFactory.load()
-  private val dbPort = config.getString("postgres.port")
-  private val dbHost = config.getString("postgres.host")
-  private val dbUserName = config.getString("postgres.username")
-  private val dbPwd = config.getString("postgres.password")
-  private val dbPrefix = config.getString("postgres.core.db_name_prefix")
-  private val dbName = dbPrefix + "preferenceBackendTest"
-
-  private val db = Database.forURL(
-    s"jdbc:postgresql://$dbHost:$dbPort/$dbName?user=$dbUserName&password=$dbPwd"
-  )
-  private val preferenceBackend = new PostgresPreferenceBackend(db)
-
-  @BeforeClass def initialization(): Unit = {
-    preferenceBackend.init()
-  }
 }
