@@ -260,8 +260,7 @@ class AccountSynchronizer(cache: DaemonCache,
 
     case ForceSynchronization => context become synchronizing(lastHeightSeen)
       sync().pipeTo(self)
-      sender() ! updatedSyncingStatus(lastHeightSeen)
-
+      updatedSyncingStatus(lastHeightSeen).pipeTo(sender())
     case StartSynchronization => context become synchronizing(lastHeightSeen)
       sync().pipeTo(self)
 
