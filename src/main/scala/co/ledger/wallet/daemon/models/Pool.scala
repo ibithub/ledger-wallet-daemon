@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.models
 
 import java.net.URL
-import java.time.{LocalDateTime, ZoneId}
+import java.time.LocalDateTime
 
 import co.ledger.core
 import co.ledger.core.implicits._
@@ -119,25 +119,6 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
     */
   def currencies(): Future[Seq[core.Currency]] = {
     coreP.getCurrencies().map(_.asScala.toList)
-  }
-
-  /**
-    * Destroys all wallets in this pool
-    *
-    * @return a future of an co.ledger.core.ErrorCode
-    */
-  def eraseAllFromSessionStart(): Future[ErrorCode] = {
-    val promise = Promise[ErrorCode]()
-    val date = java.util.Date.from(sessionStartDate.atZone(ZoneId.systemDefault()).toInstant)
-    coreP.eraseDataSince(date, new ErrorCodeCallback() {
-      override def onCallback(errorCode: ErrorCode, error: core.Error): Unit = {
-        errorCode match {
-          case ErrorCode.FUTURE_WAS_SUCCESSFULL => promise.success(errorCode)
-          case _ => promise.failure(new UnknownError(error.getMessage))
-        }
-      }
-    })
-    promise.future
   }
 
   def addWalletIfNotExist(walletName: String, currencyName: String, isNativeSegwit: Boolean): Future[core.Wallet] = {

@@ -303,6 +303,12 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
       case _ => Future.successful(())
     }.flatMap(_ => block)
   }
+
+  def getDelegations(accountInfo: AccountInfo): Future[Seq[DelegationView]] = {
+    daemonCache.withAccountAndWallet(accountInfo) {
+      case (account, _) => account.getDelegations()
+    }
+  }
 }
 
 case class OperationQueryParams(previous: Option[UUID], next: Option[UUID], batch: Int, fullOp: Int)

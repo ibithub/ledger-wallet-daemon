@@ -150,7 +150,13 @@ trait APIFeatureTest extends FeatureTest {
       attempt -= 1
       Thread.sleep(500)
     }
+  }
 
+  protected def assertGetAccountDelegation(poolName: String, walletName: String, accountIndex: Int, expected: Status): Response = {
+    server.httpGet(
+      s"/pools/$poolName/wallets/$walletName/accounts/$accountIndex/delegations",
+      andExpect = expected
+    )
   }
 
   protected def assertCreateTransaction(tx: String, poolName: String, walletName: String, accountIndex: Int, expected: Status): Response = {
