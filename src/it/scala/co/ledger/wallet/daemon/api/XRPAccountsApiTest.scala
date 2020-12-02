@@ -14,7 +14,7 @@ import scala.concurrent.duration._
 
 class XRPAccountsApiTest extends APIFeatureTest {
 
-  val poolName = "op_pool"
+  val poolName = "default_test_pool"
 
   override def beforeAll(): Unit = {
     createPool(poolName)

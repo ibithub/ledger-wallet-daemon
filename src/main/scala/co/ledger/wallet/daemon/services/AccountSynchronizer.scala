@@ -142,7 +142,7 @@ class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, synchronize
         accounts <- wallet.accounts
       } yield (wallet, accounts)))
     } yield {
-      walletsAccount.map { case (wallet, accounts) =>
+      Future.sequence(walletsAccount.flatMap { case (wallet, accounts) =>
         accounts.map(account => {
           val accountInfo = AccountInfo(
             walletName = wallet.getName,
@@ -150,13 +150,12 @@ class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, synchronize
             accountIndex = account.getIndex)
           unregisterAccount(accountInfo)
         })
-      }
+      })
     }
   }
 
   // return None if account info not found
   def getSyncStatus(accountInfo: AccountInfo): Future[Option[SyncStatus]] = {
-
     val status = for {
       synchronizer <- OptionT.fromOption[Future](Option(registeredAccounts.get(accountInfo)))
       status <- OptionT.liftF(ask(synchronizer, GetStatus)(Timeout(10 seconds)).mapTo[SyncStatus])
@@ -268,8 +267,7 @@ class AccountSynchronizer(cache: DaemonCache,
       timers.cancel(StartSynchronization)
       restartPublisher()
       operationPublisher ! AccountOperationsPublisher.SubscribeToOperationsCount(self)
-      wipeAllOperations()
-        .pipeTo(self)
+      wipeAllOperations().pipeTo(self)
 
     case Failure(t) => log.error(t, s"An error occurred synchronizing account $accountInfo  at $lastHeightSeen")
       scheduleNextSync()
@@ -318,6 +316,7 @@ class AccountSynchronizer(cache: DaemonCache,
       log.error(t, s"#Sync : An error occurred resyncing account $accountInfo (${current.count} / ${target.value} ops)")
       scheduleNextSync()
   }
+
 
   private def lastAccountBlockHeight: Future[BlockHeight] = account.getLastBlock()
     .map(h => BlockHeight(h.getHeight))
