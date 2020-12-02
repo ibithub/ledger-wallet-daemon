@@ -245,6 +245,7 @@ class AccountSynchronizer(cache: DaemonCache,
   override val receive: Receive = uninitialized()
 
   def uninitialized(): Receive = {
+
     case Init => lastAccountBlockHeight.pipeTo(self)
     case h: BlockHeight => context become idle(lastHeightSeen = h)
       self ! StartSynchronization
@@ -318,13 +319,17 @@ class AccountSynchronizer(cache: DaemonCache,
   }
 
 
-  private def lastAccountBlockHeight: Future[BlockHeight] = account.getLastBlock()
-    .map(h => BlockHeight(h.getHeight))
-    .recover {
-      case _: co.ledger.core.implicits.BlockNotFoundException => BlockHeight(0)
-    }
+  private def lastAccountBlockHeight: Future[BlockHeight] = {
+    import co.ledger.wallet.daemon.context.ApplicationContext.synchronizationPool
+    account.getLastBlock()
+      .map(h => BlockHeight(h.getHeight))(synchronizationPool)
+      .recover {
+        case _: co.ledger.core.implicits.BlockNotFoundException => BlockHeight(0)
+      }(synchronizationPool)
+  }
 
   private def updatedSyncingStatus(atStartTime: BlockHeight) = lastAccountBlockHeight.map(lastHeight => Syncing(atStartTime.value, lastHeight.value))
+
 
   private def scheduleNextSync(): Unit = {
     val syncInterval = DaemonConfiguration.Synchronization.syncInterval.seconds
@@ -352,26 +357,29 @@ class AccountSynchronizer(cache: DaemonCache,
 
 
   private def sync(): Future[SyncResult] = {
+    import co.ledger.wallet.daemon.context.ApplicationContext.synchronizationPool
+
     log.info(s"#Sync : start syncing $accountInfo")
     account
-      .sync(poolName.name, walletName)
+      .sync(poolName.name, walletName)(synchronizationPool)
       .flatMap { result =>
         if (result.syncResult) {
           log.info(s"#Sync : $accountInfo has been synced : $result")
-          lastAccountBlockHeight.map(SyncSuccess)
+          lastAccountBlockHeight.map(SyncSuccess)(synchronizationPool)
         } else {
           log.error(s"#Sync : $accountInfo has FAILED")
           Future.successful(SyncFailure(s"#Sync : Lib core failed to sync the account $accountInfo"))
         }
-      }
+      }(synchronizationPool)
       .recoverWith { case NonFatal(t) =>
         log.error(t, s"#Sync Failed to sync account: $accountInfo")
         Future.successful(SyncFailure(t.getMessage))
-      }
+      }(synchronizationPool)
   }
 }
 
 object AccountSynchronizer {
+
 
   /**
     * Wipe all the data's account from the database then restart a Sync
