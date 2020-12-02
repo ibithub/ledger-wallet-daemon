@@ -79,9 +79,9 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
             BigInt(row.get[String]("amount"), 16),
             BigInt(row.get[String]("fees"), 16),
             w.getName, a.getIndex,
-            row.get[String]("gas_price"),
-            row.get[String]("gas_limit"),
-            row.get[String]("gas_used"),
+            BigInt(row.get[String]("gas_price"), 16).toString(),
+            BigInt(row.get[String]("gas_limit"), 16).toString(),
+            BigInt(row.get[String]("gas_used"), 16).toString(),
             BigInt(row.get[String]("status")),
             BigInt(row.get[String]("confirmations")),
             row.get[String]("senders"),
@@ -186,8 +186,8 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
           Some(EthereumTransactionView(blockView, row.get[String]("transaction_hash"),
             ethReceipient, ethSender, amount.toString(),
             Some(ERC20(ercReceiver, BigInt(ercValue, 16))),
-            row.get[String]("gas_price"),
-            row.get[String]("gas_limit"),
+            BigInt(row.get[String]("gas_price"), 16).toString(),
+            BigInt(row.get[String]("gas_limit"), 16).toString(),
             operationDate, BigInt(row.get[String]("status")).intValue()))
         )
       }
