@@ -58,6 +58,10 @@ trait APIFeatureTest extends FeatureTest with Mockito {
     server.httpPost("/pools/operations/synchronize", "", andExpect = expected)
   }
 
+  def assertRepushAccountOperations(poolName: String, walletName: String, accIdx: Int, expected: Status): Response = {
+    server.httpPost(s"/pools/$poolName/wallets/$walletName/accounts/$accIdx/operations/repush", "", headers = defaultHeaders, andExpect = expected)
+  }
+
   def assertSyncAccount(poolName: String, walletName: String, accIdx: Int): Response = {
     val resp = server.httpPost(s"/pools/$poolName/wallets/$walletName/accounts/$accIdx/operations/synchronize", "", andExpect = Status.Ok)
     resp
