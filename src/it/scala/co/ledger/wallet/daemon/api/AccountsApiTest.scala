@@ -15,157 +15,166 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer,
 import com.twitter.finagle.http.{Response, Status}
 
 class AccountsApiTest extends APIFeatureTest {
+  val poolName = "default_test_pool"
+
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    createPool(poolName)
+  }
+
+  override def afterAll(): Unit = {
+    deletePool(poolName)
+    super.afterAll()
+  }
 
   test("AccountsApi#Get history") {
-    createPool("balance_pool")
-    assertWalletCreation("balance_pool", "account_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(CORRECT_BODY_BITCOIN, "balance_pool", "account_wallet", Status.Ok)
-    history("balance_pool", "account_wallet", 0, "2017-10-12T13:38:23Z", "2018-10-12T13:38:23Z", TimePeriod.DAY.toString, Status.Ok)
-    deletePool("balance_pool")
+    assertWalletCreation(poolName, poolName, "bitcoin", Status.Ok)
+    assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, poolName, Status.Ok)
+    history(poolName, poolName, 0, "2017-10-12T13:38:23Z", "2018-10-12T13:38:23Z", TimePeriod.DAY.toString, Status.Ok)
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Get history bad requests") {
-    createPool("balance_pool")
-    assertWalletCreation("balance_pool", "account_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(CORRECT_BODY_BITCOIN, "balance_pool", "account_wallet", Status.Ok)
-    history("balance_pool", "account_wallet", 0, "2017-10-12", "2018-10-12T13:38:23Z", TimePeriod.DAY.toString, Status.BadRequest)
-    history("balance_pool", "account_wallet", 0, "2017-10-12T13:38:23Z", "2018-10-12", TimePeriod.DAY.toString, Status.BadRequest)
-    history("balance_pool", "account_wallet", 0, "2017-10-12T13:38:23Z", "2018-10-12T13:38:23Z", "TIME", Status.BadRequest)
-    history("balance_pool", "account_wallet", 0, "2018-11-12T13:38:23Z", "2018-10-12T13:38:23Z", TimePeriod.DAY.toString, Status.BadRequest)
+    // createPool(poolName)
+    assertWalletCreation(poolName, poolName, "bitcoin", Status.Ok)
+    assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, poolName, Status.Ok)
+    history(poolName, poolName, 0, "2017-10-12", "2018-10-12T13:38:23Z", TimePeriod.DAY.toString, Status.BadRequest)
+    history(poolName, poolName, 0, "2017-10-12T13:38:23Z", "2018-10-12", TimePeriod.DAY.toString, Status.BadRequest)
+    history(poolName, poolName, 0, "2017-10-12T13:38:23Z", "2018-10-12T13:38:23Z", "TIME", Status.BadRequest)
+    history(poolName, poolName, 0, "2018-11-12T13:38:23Z", "2018-10-12T13:38:23Z", TimePeriod.DAY.toString, Status.BadRequest)
     // test if period too long
-    history("balance_pool", "account_wallet", 0, "2015-11-12T00:00:00Z", "2015-13-12T00:00:00Z", TimePeriod.HOUR.toString, Status.BadRequest)
-    history("balance_pool", "account_wallet", 0, "2015-11-12T00:00:00Z", "2015-13-12T00:00:00Z", TimePeriod.DAY.toString, Status.Ok)
-    history("balance_pool", "account_wallet", 0, "2015-11-12T00:00:00Z", "2019-10-12T00:00:00Z", TimePeriod.DAY.toString, Status.BadRequest)
-    history("balance_pool", "account_wallet", 0, "2015-11-12T00:00:00Z", "2019-10-12T00:00:00Z", TimePeriod.WEEK.toString, Status.Ok)
-    history("balance_pool", "account_wallet", 0, "2015-11-12T00:00:00Z", "2029-10-12T00:00:00Z", TimePeriod.WEEK.toString, Status.BadRequest)
-    history("balance_pool", "account_wallet", 0, "2015-11-12T00:00:00Z", "2029-10-12T00:00:00Z", TimePeriod.MONTH.toString, Status.Ok)
-    history("balance_pool", "account_wallet", 0, "2015-11-12T00:00:00Z", "2219-10-12T00:00:00Z", TimePeriod.MONTH.toString, Status.BadRequest)
-    deletePool("balance_pool")
+    history(poolName, poolName, 0, "2015-11-12T00:00:00Z", "2015-13-12T00:00:00Z", TimePeriod.HOUR.toString, Status.BadRequest)
+    history(poolName, poolName, 0, "2015-11-12T00:00:00Z", "2015-13-12T00:00:00Z", TimePeriod.DAY.toString, Status.Ok)
+    history(poolName, poolName, 0, "2015-11-12T00:00:00Z", "2019-10-12T00:00:00Z", TimePeriod.DAY.toString, Status.BadRequest)
+    history(poolName, poolName, 0, "2015-11-12T00:00:00Z", "2019-10-12T00:00:00Z", TimePeriod.WEEK.toString, Status.Ok)
+    history(poolName, poolName, 0, "2015-11-12T00:00:00Z", "2029-10-12T00:00:00Z", TimePeriod.WEEK.toString, Status.BadRequest)
+    history(poolName, poolName, 0, "2015-11-12T00:00:00Z", "2029-10-12T00:00:00Z", TimePeriod.MONTH.toString, Status.Ok)
+    history(poolName, poolName, 0, "2015-11-12T00:00:00Z", "2219-10-12T00:00:00Z", TimePeriod.MONTH.toString, Status.BadRequest)
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Get empty accounts") {
-    createPool("account_pool")
-    assertWalletCreation("account_pool", "account_wallet", "bitcoin", Status.Ok)
-    val result = assertGetAccounts(None, "account_pool", "account_wallet", Status.Ok)
-    val expectedResponse = List[AccountView]()
-    assert(expectedResponse === parse[Seq[AccountView]](result))
-    deletePool("account_pool")
+    val walletName = "emptywallet"
+    assertWalletCreation(poolName, walletName, "bitcoin", Status.Ok)
+    val result = assertGetAccounts(None, poolName, walletName, Status.Ok)
+    assert(parse[Seq[AccountView]](result).isEmpty)
   }
 
   test("AccountsApi#Get account with index from empty wallet") {
-    createPool("account_pool")
-    assertWalletCreation("account_pool", "individual_account_wallet", "bitcoin", Status.Ok)
-    assertGetAccounts(Option(1), "account_pool", "individual_account_wallet", Status.NotFound)
-    deletePool("account_pool")
+    assertWalletCreation(poolName, "individual_account_wallet", "bitcoin", Status.Ok)
+    assertGetAccounts(Option(1), poolName, "individual_account_wallet", Status.NotFound)
   }
 
   test("AccountsApi#Get accounts same as get individual account") {
-    createPool("list_pool")
-    assertWalletCreation("list_pool", "account_wallet", "bitcoin", Status.Ok)
-    val expectedAccount = parse[AccountView](assertCreateAccount(CORRECT_BODY_BITCOIN, "list_pool", "account_wallet", Status.Ok))
-    val actualAccount = parse[AccountView](assertGetAccounts(Option(0), "list_pool", "account_wallet", Status.Ok))
+    // createPool(poolName)
+    val walletName = "getaccountall"
+    assertWalletCreation(poolName, walletName, "bitcoin", Status.Ok)
+    val expectedAccount = parse[AccountView](assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, walletName, Status.Ok))
+    val actualAccount = parse[AccountView](assertGetAccounts(Option(0), poolName, walletName, Status.Ok))
     assert(expectedAccount === actualAccount)
-    val actualAccountList = parse[Seq[AccountView]](assertGetAccounts(None, "list_pool", "account_wallet", Status.Ok))
+    val actualAccountList = parse[Seq[AccountView]](assertGetAccounts(None, poolName, walletName, Status.Ok))
     assert(List(actualAccount) === actualAccountList)
-    deletePool("list_pool")
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Get fresh addresses from account") {
-    createPool("fresh_addresses_pool")
-    assertWalletCreation("fresh_addresses_pool", "account_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(CORRECT_BODY_BITCOIN, "fresh_addresses_pool", "account_wallet", Status.Ok)
-    val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses("fresh_addresses_pool", "account_wallet", index = 0, Status.Ok))
+    // createPool(poolName)
+    assertWalletCreation(poolName, poolName, "bitcoin", Status.Ok)
+    assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, poolName, Status.Ok)
+    val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, poolName, index = 0, Status.Ok))
     assert(addresses.nonEmpty)
-    deletePool("fresh_addresses_pool")
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Get addresses by range") {
-    createPool("account_pool")
-    assertWalletCreation("account_pool", "accounts_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(CORRECT_BODY_BITCOIN, "account_pool", "accounts_wallet", Status.Ok)
-    val r = parse[Seq[FreshAddressView]](getAddresses("account_pool", "accounts_wallet", 0, 0, 1))
+    // createPool(poolName)
+    assertWalletCreation(poolName, "accounts_wallet", "bitcoin", Status.Ok)
+    assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, "accounts_wallet", Status.Ok)
+    val r = parse[Seq[FreshAddressView]](getAddresses(poolName, "accounts_wallet", 0, 0, 1))
     assert(r.size == 4)
-    deletePool("account_pool")
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Get utxo from btc account") {
-    val poolName = "getUtxo_pool"
-    createPool(poolName)
-    assertWalletCreation(poolName, "account_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, "account_wallet", Status.Ok)
-    val utxoList = parse[UtxoAccountResponse](assertGetUTXO(poolName, "account_wallet", index = 0, Status.Ok))
-    // FIXME : There is no UTXO on this account so the result is empty
-    assert(utxoList.utxos.isEmpty)
-    assert(0 === utxoList.count)
-    deletePool(poolName)
+    val walletName = "getutxo"
+    assertWalletCreation(poolName, walletName, "bitcoin", Status.Ok)
+    assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, walletName, Status.Ok)
+    assertSyncAccount(poolName, walletName, 0)
+    assertSyncPools(Status.Ok)
+    val utxoList = parse[UtxoAccountResponse](assertGetUTXO(poolName, walletName, index = 0, Status.Ok))
+    assert(utxoList.utxos.exists(_.address == "1N1zxviEVvKoCHd91wcJGuFLBQjhkWiBQ1"))
+    assert(utxoList.utxos.exists(_.address == "19QXVtvE98WkhBAEPUApaMScbDsvQMc5DD"))
+    assert(utxoList.utxos.exists(_.address == "13CaMweDMLgxLwNJ5asXLsmruQhnfzVkEg"))
+    assert(5 === utxoList.count)
   }
 
   test("AccountsApi#Get account(s) from non exist pool return bad request") {
-    assertCreateAccount(CORRECT_BODY_BITCOIN, "not_exist_pool", "account_wallet", Status.BadRequest)
-    assertGetAccounts(None, "not_exist_pool", "account_wallet", Status.BadRequest)
-    assertGetAccounts(Option(0), "not_exist_pool", "account_wallet", Status.BadRequest)
+    assertCreateAccount(CORRECT_BODY_BITCOIN, "not_exist_pool", poolName, Status.BadRequest)
+    assertGetAccounts(None, "not_exist_pool", poolName, Status.BadRequest)
+    assertGetAccounts(Option(0), "not_exist_pool", poolName, Status.BadRequest)
   }
 
   test("AccountsApi#Get account(s) from non exist wallet return bad request") {
-    createPool("exist_pool")
-    assertCreateAccount(CORRECT_BODY_BITCOIN, "exist_pool", "not_exist_wallet", Status.BadRequest)
-    assertGetAccounts(None, "exist_pool", "not_exist_wallet", Status.BadRequest)
-    assertGetAccounts(Option(0), "exist_pool", "not_exist_wallet", Status.BadRequest)
-    deletePool("exist_pool")
+    // createPool(poolName)
+    assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, "not_exist_wallet", Status.BadRequest)
+    assertGetAccounts(None, poolName, "not_exist_wallet", Status.BadRequest)
+    assertGetAccounts(Option(0), poolName, "not_exist_wallet", Status.BadRequest)
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Get next account creation info with index return Ok") {
-    createPool("info_pool")
-    assertWalletCreation("info_pool", "account_wallet", "bitcoin", Status.Ok)
-    val actualResult = parse[AccountDerivationView](assertGetAccountCreationInfo("info_pool", "account_wallet", Option(0), Status.Ok))
+    // createPool(poolName)
+    assertWalletCreation(poolName, poolName, "bitcoin", Status.Ok)
+    val actualResult = parse[AccountDerivationView](assertGetAccountCreationInfo(poolName, poolName, Option(0), Status.Ok))
     assert(0 === actualResult.accountIndex)
-    deletePool("info_pool")
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Get next account creation info without index return Ok") {
-    createPool("info_pool")
-    assertWalletCreation("info_pool", "account_wallet", "bitcoin", Status.Ok)
-    assertGetAccountCreationInfo("info_pool", "account_wallet", None, Status.Ok)
-    deletePool("info_pool")
+    // createPool(poolName)
+    assertWalletCreation(poolName, poolName, "bitcoin", Status.Ok)
+    assertGetAccountCreationInfo(poolName, poolName, None, Status.Ok)
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Create account with no pubkey") {
-    createPool("account_pool")
-    assertWalletCreation("account_pool", "accounts_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(MISSING_PUBKEY_BODY, "account_pool", "accounts_wallet", Status.BadRequest)
-    deletePool("account_pool")
+    // createPool(poolName)
+    assertWalletCreation(poolName, "accounts_wallet", "bitcoin", Status.Ok)
+    assertCreateAccount(MISSING_PUBKEY_BODY, poolName, "accounts_wallet", Status.BadRequest)
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Create account with invalid request body") {
-    createPool("account_pool")
-    assertWalletCreation("account_pool", "accounts_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(MISSING_PATH_BODY, "account_pool", "accounts_wallet", Status.BadRequest)
-    deletePool("account_pool")
+    // createPool(poolName)
+    assertWalletCreation(poolName, "accounts_wallet", "bitcoin", Status.Ok)
+    assertCreateAccount(MISSING_PATH_BODY, poolName, "accounts_wallet", Status.BadRequest)
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Create account fail core lib validation") {
-    createPool("account_pool")
-    assertWalletCreation("account_pool", "accounts_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(INVALID_ARGUMENT_BODY, "account_pool", "accounts_wallet", Status.BadRequest)
-    deletePool("account_pool")
+    // createPool(poolName)
+    assertWalletCreation(poolName, "accounts_wallet", "bitcoin", Status.Ok)
+    assertCreateAccount(INVALID_ARGUMENT_BODY, poolName, "accounts_wallet", Status.BadRequest)
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Create account on btc testnet") {
-    createPool("test_pool")
-    assertWalletCreation("test_pool", "accounts_wallet", "bitcoin_testnet", Status.Ok)
-    assertCreateAccount(CORRECT_BODY_BITCOIN, "test_pool", "accounts_wallet", Status.Ok)
-    deletePool("test_pool")
+    // createPool(poolName)
+    assertWalletCreation(poolName, "accounts_wallet", "bitcoin_testnet", Status.Ok)
+    assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, "accounts_wallet", Status.Ok)
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Create account with request body as invalid json") {
-    createPool("account_pool")
-    assertWalletCreation("account_pool", "accounts_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(INVALID_JSON, "account_pool", "accounts_wallet", Status.BadRequest)
-    deletePool("account_pool")
+    // createPool(poolName)
+    assertWalletCreation(poolName, "accounts_wallet", "bitcoin", Status.Ok)
+    assertCreateAccount(INVALID_JSON, poolName, "accounts_wallet", Status.BadRequest)
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Create and Delete pool with wallet accounts") {
-    val poolName = "delete_pool"
+    val poolName = "create_delete_pool"
     val wallet1 = "account_deletePool_wal1"
     val wallet2 = "account_deletePool_wal2"
     val wallet3 = "account_deletePool_wal3"
@@ -190,13 +199,13 @@ class AccountsApiTest extends APIFeatureTest {
 
   // To be removed as wipe data is not proposed anymore, resync feature is proposed instead
   ignore("AccountsApi#Create account and wipe specific account") {
-    val poolName = "delete_account"
+    // val poolName = "delete_account"
     val wallet1 = "test_deleteAcc_wal1"
     val wallet2 = "test_deleteAcc_wal2"
     val wallet3 = "test_deleteAcc_wal3"
 
     // Create Pool wallets and accounts
-    createPool(poolName)
+    // createPool(poolName)
 
     assertWalletCreation(poolName, wallet1, "bitcoin", Status.Ok) // no account associated
     assertWalletCreation(poolName, wallet2, "bitcoin", Status.Ok) // 1 account associated
@@ -262,48 +271,44 @@ class AccountsApiTest extends APIFeatureTest {
   }
 
   test("AccountsApi#Get account operations") {
-
     def getUUID(field: String, content: Map[String, JsonNode]): Option[UUID] = {
       val idStr = content.get(field).map(_.asText())
       idStr.map(UUID.fromString)
     }
 
-    createPool("op_pool")
-    assertWalletCreation("op_pool", "op_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(CORRECT_BODY_BITCOIN, "op_pool", "op_wallet", Status.Ok)
+    val walletName = "op_wallet"
+    assertWalletCreation(poolName, walletName, "bitcoin", Status.Ok)
+    assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, walletName, Status.Ok)
     assertSyncPools(Status.Ok)
-    assertGetAccountOp("op_pool", "op_wallet", 0, "noexistop", 0, Status.NotFound)
-    assertGetAccountOp("op_pool", "op_wallet", 0, "bcbe563a94e70a6fe0a190d6578f5440615eb64bbd6c49b2a6b77eb9ba01963a", 0, Status.Ok)
-    val response = assertGetFirstOperation(0, "op_pool", "op_wallet", Status.Ok).contentString
-    assert(response.contains("ed977add08cfc6cd158e65150bcd646d7a52b60f84e15e424b617d5511aaed21"))
+    assertGetAccountOp(poolName, walletName, 0, "noexistop", 0, Status.NotFound)
+    assertGetAccountOp(poolName, walletName, 0, "1e05a587ed9c697f192623514fddd619a454e8c4b0b2bec7e3026f0e8abc7e05", 0, Status.Ok)
+    val response = assertGetFirstOperation(0, poolName, walletName, Status.Ok).contentString
+    assert(response.contains("10780ee61c3fd032d5a65034bdd2a1bb1295fc724c5b93b86bc6ee55c075d213"))
 
+    val firstBtch = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 2, 0), Status.Ok))
+    val secondBtch = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, getUUID("next", firstBtch), 10, 0), Status.Ok))
 
-    val firstBtch = parse[Map[String, JsonNode]](assertGetAccountOps("op_pool", "op_wallet", 0, OperationQueryParams(None, None, 2, 0), Status.Ok))
-
-    val secondBtch = parse[Map[String, JsonNode]](assertGetAccountOps("op_pool", "op_wallet", 0, OperationQueryParams(None, getUUID("next", firstBtch), 10, 0), Status.Ok))
-
-    val previousOf2ndBtch = parse[Map[String, JsonNode]](assertGetAccountOps("op_pool", "op_wallet", 0, OperationQueryParams(getUUID("previous", secondBtch), None, 10, 0), Status.Ok))
+    val previousOf2ndBtch = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(getUUID("previous", secondBtch), None, 10, 0), Status.Ok))
     assert(firstBtch.get("next") === previousOf2ndBtch.get("next"))
     assert(firstBtch.get("previous") === previousOf2ndBtch.get("previous"))
 
-    val thirdBtch = parse[Map[String, JsonNode]](assertGetAccountOps("op_pool", "op_wallet", 0, OperationQueryParams(None, getUUID("next", secondBtch), 5, 0), Status.Ok))
-
-    val fourthBtch = parse[Map[String, JsonNode]](assertGetAccountOps("op_pool", "op_wallet", 0, OperationQueryParams(None, getUUID("next", thirdBtch), 10, 0), Status.Ok))
-
-    val previousOf4thBtch = parse[Map[String, JsonNode]](assertGetAccountOps("op_pool", "op_wallet", 0, OperationQueryParams(getUUID("previous", fourthBtch), None, 10, 1), Status.Ok))
+    val thirdBtch = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, getUUID("next", secondBtch), 5, 0), Status.Ok))
+    val fourthBtch = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, getUUID("next", thirdBtch), 10, 0), Status.Ok))
+    val previousOf4thBtch = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(getUUID("previous", fourthBtch), None, 10, 1), Status.Ok))
     assert(thirdBtch.get("next") === previousOf4thBtch.get("next"))
     assert(thirdBtch.get("previous") === previousOf4thBtch.get("previous"))
-    deletePool("op_pool")
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Pool not exist") {
-    createPool("op_pool_mal")
-    assertWalletCreation("op_pool_mal", "op_wallet", "bitcoin", Status.Ok)
-    assertCreateAccount(CORRECT_BODY_BITCOIN, "op_pool_mal", "op_wallet", Status.Ok)
-    assertGetAccountOps("op_pool_non_exist", "op_wallet", 0, OperationQueryParams(None, None, 2, 0), Status.BadRequest)
-    assertGetAccountOps("op_pool_mal", "op_wallet", 0, OperationQueryParams(None, Option(UUID.randomUUID), 2, 0), Status.BadRequest)
-    assertGetAccountOps("op_pool_mal", "op_wallet", 0, OperationQueryParams(Option(UUID.randomUUID), None, 2, 0), Status.BadRequest)
-    deletePool("op_pool_mal")
+    // createPool(poolName)
+    val walletName = "poolUnknwonwWallet"
+    assertWalletCreation(poolName, walletName, "bitcoin", Status.Ok)
+    assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, walletName, Status.Ok)
+    assertGetAccountOps("op_pool_non_exist", walletName, 0, OperationQueryParams(None, None, 2, 0), Status.BadRequest)
+    assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, Option(UUID.randomUUID), 2, 0), Status.BadRequest)
+    assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(Option(UUID.randomUUID), None, 2, 0), Status.BadRequest)
+    // deletePool(poolName)
   }
 
   private val CORRECT_BODY_ETH =
@@ -331,9 +336,8 @@ class AccountsApiTest extends APIFeatureTest {
       """}"""
 
   test("AccountsApi#Create ETH account") {
-    val poolName = "op_pool"
     val walletName = "ethWallet"
-    createPool(poolName)
+    // createPool(poolName)
     assertWalletCreation(poolName, walletName, "ethereum", Status.Ok)
     assertCreateAccountExtended(CORRECT_BODY_ETH, poolName, walletName, Status.Ok)
     val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, index = 0, Status.Ok))
@@ -341,13 +345,12 @@ class AccountsApiTest extends APIFeatureTest {
     assert(addresses.size == 1)
     assertSyncAccount(poolName, walletName, 0)
     assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 5, 0), Status.Ok)
-    deletePool(poolName)
+    // deletePool(poolName)
   }
 
   test("AccountsApi#Create ETH ropsten account") {
-    val poolName = "op_pool"
     val walletName = "ethRopstenWallet"
-    createPool(poolName)
+    // createPool(poolName)
     assertWalletCreation(poolName, walletName, "ethereum_ropsten", Status.Ok)
     assertCreateAccount(CORRECT_BODY_ETH_ROPSTEN, poolName, walletName, Status.Ok)
     // Expect one address on eth accounts
@@ -357,6 +360,7 @@ class AccountsApiTest extends APIFeatureTest {
 
     // Sync and get operations, check the two firsts pages does not have any intersections
     assertSyncAccount(poolName, walletName, 0)
+
     val response: PackedOperationsView = parse[PackedOperationsView](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 5, 0), Status.Ok))
     val response2: PackedOperationsView = parse[PackedOperationsView](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, response.next, 5, 0), Status.Ok))
     assert(response.operations.size == 5)
@@ -371,7 +375,7 @@ class AccountsApiTest extends APIFeatureTest {
 
     // Check that balance = 1.976594768488753681 Ether (https://ropsten.etherscan.io/address/0x2EaDEDe7034243Bd2E8a574E80aFDD60409AE5c4)
     assert(historyResponse.balances.head == BigInt.apply(1976594768488753681L))
-    deletePool(poolName)
+    // deletePool(poolName)
   }
 
 
@@ -392,9 +396,8 @@ class AccountsApiTest extends APIFeatureTest {
   }
 
   test("AccountsApi#Create ERC20 ropsten account") {
-    val poolName = "op_pool"
     val walletName = "ethRopstenTokenWallet"
-    createPool(poolName)
+    // createPool(poolName)
     assertWalletCreation(poolName, walletName, "ethereum_ropsten", Status.Ok)
     assertCreateAccount(CORRECT_BODY_ETH_ROPSTEN, poolName, walletName, Status.Ok)
 
@@ -414,7 +417,7 @@ class AccountsApiTest extends APIFeatureTest {
     info(s"histo : $histoResponse")
     assert(histoResponse.balances.size == 3)
     assert(histoResponse.balances.head == BigInt("100000000000000000000"))
-    deletePool(poolName)
+    // deletePool(poolName)
   }
 
 
@@ -471,6 +474,7 @@ class AccountsApiTest extends APIFeatureTest {
       """}""" +
       """]""" +
       """}"""
+
   private val INVALID_ARGUMENT_BODY =
     """{""" +
       """"account_index": 0,""" +
@@ -489,6 +493,7 @@ class AccountsApiTest extends APIFeatureTest {
       """}""" +
       """]""" +
       """}"""
+
   private val MISSING_PUBKEY_BODY =
     """{""" +
       """"account_index": 0,""" +
@@ -506,6 +511,7 @@ class AccountsApiTest extends APIFeatureTest {
       """}""" +
       """]""" +
       """}"""
+
   private val MISSING_PATH_BODY =
     """{""" +
       """"account_index": 0,""" +
@@ -523,6 +529,7 @@ class AccountsApiTest extends APIFeatureTest {
       """}""" +
       """]""" +
       """}"""
+
   private val INVALID_JSON =
     """{""" +
       """"account_index": 0,""" +
