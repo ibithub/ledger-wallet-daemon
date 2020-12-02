@@ -204,13 +204,9 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
       })
   }
 
-  def accountFreshAddresses(accountInfo: AccountInfo): Future[Seq[FreshAddressView]] = checkSyncStatus(accountInfo) {
-    daemonCache.getFreshAddresses(accountInfo)
-  }
+  def accountFreshAddresses(accountInfo: AccountInfo): Future[Seq[FreshAddressView]] = daemonCache.getFreshAddresses(accountInfo)
 
-  def accountAddressesInRange(from: Long, to: Long, accountInfo: AccountInfo): Future[Seq[FreshAddressView]] = checkSyncStatus(accountInfo) {
-    daemonCache.getAddressesInRange(from, to, accountInfo)
-  }
+  def accountAddressesInRange(from: Long, to: Long, accountInfo: AccountInfo): Future[Seq[FreshAddressView]] = daemonCache.getAddressesInRange(from, to, accountInfo)
 
   def accountDerivationPath(accountInfo: AccountInfo): Future[String] =
     daemonCache.withWallet(accountInfo.walletInfo)(_.accountDerivationPathInfo(accountInfo.accountIndex))
@@ -298,13 +294,11 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
 
   private def checkSyncStatus[T](account: AccountInfo)(block: => Future[T]): Future[T] = {
     val status = synchronizerManager.getSyncStatus(account)
-    status
-      .flatMap {
-        case Some(Resyncing(targetHeight, currentHeight)) => Future.failed(ResyncOnGoingException(targetHeight, currentHeight))
-        case None => Future.failed(AccountNotFoundException(account.accountIndex))
-        case _ => Future.successful(())
-      }
-      .flatMap(_ => block)
+    status.flatMap {
+      case Some(Resyncing(targetHeight, currentHeight)) => Future.failed(ResyncOnGoingException(targetHeight, currentHeight))
+      case None => Future.failed(AccountNotFoundException(account.accountIndex))
+      case _ => Future.successful(())
+    }.flatMap(_ => block)
   }
 }
 
