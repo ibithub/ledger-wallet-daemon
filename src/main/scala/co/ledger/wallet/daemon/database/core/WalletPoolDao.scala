@@ -16,6 +16,7 @@ class WalletPoolDao(poolName: String)(implicit val ec: ExecutionContext) extends
   lazy val ethDao = new EthereumDao(db)
   lazy val xrpDao = new RippleDao(db)
   lazy val xlmDao = new StellarDao(db)
+  lazy val xtzDao = new TezosDao(db)
 
   /**
     * List operations from an account
