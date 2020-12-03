@@ -1,6 +1,6 @@
 package co.ledger.wallet.daemon.services
 
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.database.DaemonCache
 import co.ledger.wallet.daemon.exceptions.CurrencyNotFoundException
 import co.ledger.wallet.daemon.models.Currency._

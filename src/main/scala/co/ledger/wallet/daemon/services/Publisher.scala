@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.services
 
 import co.ledger.core._
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.models.Operations.OperationView
 import co.ledger.wallet.daemon.models.Pool
 import com.fasterxml.jackson.annotation.JsonProperty

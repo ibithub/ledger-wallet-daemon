@@ -7,6 +7,7 @@ import co.ledger.core.{Lock, ThreadDispatcher}
 import scala.concurrent.ExecutionContext
 
 class ScalaThreadDispatcher(mainContext: ExecutionContext) extends ThreadDispatcher {
+  // Thread dispatcher
   private val _mainContext = LedgerCoreExecutionContext(mainContext)
   // Keep track in order to keep a single pool instance
   private val _poolsSerial = new ConcurrentHashMap[String, co.ledger.core.ExecutionContext]()

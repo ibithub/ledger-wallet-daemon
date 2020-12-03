@@ -10,9 +10,9 @@ import cats.syntax.either._
 import cats.syntax.traverse._
 import co.ledger.core
 import co.ledger.core.{Account, Wallet}
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
 import co.ledger.wallet.daemon.clients.{ClientFactory, ScalaHttpClientPool}
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.database.DaemonCache
 import co.ledger.wallet.daemon.exceptions.{AccountNotFoundException, ERC20NotFoundException, FallbackBalanceProviderException, ResyncOnGoingException}
 import co.ledger.wallet.daemon.models.Account._
@@ -262,7 +262,6 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
         w.addAccountIfNotExist(accountCreationBody).flatMap { a =>
           val accountInfo = AccountInfo(a.getIndex, walletInfo)
           synchronizerManager.registerAccount(a, w, accountInfo)
-
           accountView(p, walletInfo, w)(a).map(_.get)
         }
     }

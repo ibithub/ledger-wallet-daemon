@@ -440,5 +440,4 @@ object AccountsController {
                              @QueryParam from: Option[Long],
                              request: Request
                            ) extends BaseSingleAccountRequest
-
 }

@@ -57,7 +57,7 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
     * List operations from an account filtered by Uids
     */
   def listOperationsByUids(a: Account, w: Wallet, filteredUids: Option[Seq[OperationUid]], offset: Int, limit: Int): Future[Seq[OperationView]] = {
-    logger.info(s"Retrieving operations for account : $a - limit=$limit offset=$offset")
+    logger.debug(s"Retrieving operations for account : $a - limit=$limit offset=$offset")
     val currency = w.getCurrency
     val currencyName = currency.getName
     val currencyFamily = currency.getWalletType

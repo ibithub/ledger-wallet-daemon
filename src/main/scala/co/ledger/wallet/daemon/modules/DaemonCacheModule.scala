@@ -1,6 +1,6 @@
 package co.ledger.wallet.daemon.modules
 
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.database.{DaemonCache, DefaultDaemonCache}
 import co.ledger.wallet.daemon.services.AccountSynchronizerManager

@@ -1,13 +1,15 @@
 package co.ledger.wallet.daemon.services
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.actor.ActorSelection
 import co.ledger.core.{Account, ERC20LikeAccount, Wallet}
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Operations.OperationView
-import com.newmotion.akka.rabbitmq.{Channel, ChannelMessage}
 import co.ledger.wallet.daemon.models.Pool
+import com.newmotion.akka.rabbitmq.{Channel, ChannelMessage}
 import com.twitter.finatra.json.FinatraObjectMapper
 import com.twitter.inject.Logging
 
@@ -16,10 +18,14 @@ import scala.concurrent.Future
 
 class RabbitMQPublisher(poolPublisher: ActorSelection) extends Logging with Publisher {
 
+  private val totalOpPublished: AtomicInteger = new AtomicInteger(0)
+
   private val mapper = FinatraObjectMapper.create()
 
   private def publish(exchangeName: String, routingKeys: List[String], payload: Array[Byte]): Unit = {
-    logger.info(s"Publishing for $exchangeName, ${routingKeys.mkString(".")} payload size ${payload.length} bytes")
+    if (totalOpPublished.incrementAndGet() % 100 == 0) {
+      logger.info(s"RabbitMQPublisher published ${totalOpPublished.get()} messages on exchange $exchangeName")
+    }
     val publish: Channel => Unit = _.basicPublish(exchangeName, routingKeys.mkString("."), null, payload)
     poolPublisher ! ChannelMessage(publish, dropIfNoChannel = false)
   }
@@ -47,7 +53,7 @@ class RabbitMQPublisher(poolPublisher: ActorSelection) extends Logging with Publ
   }
 
   def publishDeletedOperation(uid: String, account: Account, wallet: Wallet, poolName: String): Future[Unit] = {
-    Future{
+    Future {
       val routingKey = deleteOperationRoutingKeys(account, wallet, poolName)
       val payload = deleteOperationPayload(uid, account, wallet, poolName)
       publish(poolName, routingKey, payload)

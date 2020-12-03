@@ -5,9 +5,9 @@ import java.net.URL
 import co.ledger.core
 import co.ledger.core.implicits._
 import co.ledger.core.{ConfigurationDefaults, ErrorCode}
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
 import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.database.core.WalletPoolDao
 import co.ledger.wallet.daemon.database.{PoolDto, PostgresPreferenceBackend}
 import co.ledger.wallet.daemon.exceptions.{CoreDatabaseException, CurrencyNotFoundException, UnsupportedNativeSegwitException, WalletNotFoundException}
@@ -298,15 +298,15 @@ object Pool extends Logging {
         }
         dbName match {
           case Success((cppUrl, jdbcUrl)) =>
-            val cnx = 2
+            val cnx = config.getInt("postgres.core.pool_size")
             info(s"Using PostgreSQL as core preference database $jdbcUrl with connexions : $cnx")
             val preferenceBackend = new PostgresPreferenceBackend(
-              Database.forDataSource(new DriverDataSource(jdbcUrl), Some(cnx), AsyncExecutor("PreferenceDbPool", cnx, -1)))
+              Database.forDataSource(new DriverDataSource(jdbcUrl), Some(cnx), AsyncExecutor("walletdaemon-pref-db", cnx, -1)))
             preferenceBackend.init()
             builder.setExternalPreferencesBackend(preferenceBackend)
             builder.setInternalPreferencesBackend(preferenceBackend)
             poolConfig.putString("DATABASE_NAME", cppUrl)
-            val backend = core.DatabaseBackend.getPostgreSQLBackend(config.getInt("postgres.core.pool_size"))
+            val backend = core.DatabaseBackend.getPostgreSQLBackend(cnx)
             builder.setDatabaseBackend(backend)
           case Failure(exception) =>
             throw CoreDatabaseException("Failed to configure wallet daemon's core database", exception)
