@@ -62,7 +62,7 @@ class ServerImpl extends HttpServer {
         s"DD_TRACE_PORT=${DaemonConfiguration.DD_TRACE_PORT}")
       new NonBlockingStatsDClientBuilder().prefix(DaemonConfiguration.DD_TRACE_PREFIX).hostname(DaemonConfiguration.DD_HOST).port(DaemonConfiguration.DD_TRACE_PORT).build()
     } else {
-      logger.info(s"[DATADOG AGENT] Disabled")
+      logger.info("[DATADOG AGENT] Disabled")
     }
   }
 }
