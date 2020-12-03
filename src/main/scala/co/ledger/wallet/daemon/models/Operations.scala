@@ -3,7 +3,7 @@ package co.ledger.wallet.daemon.models
 import java.util.{Date, UUID}
 
 import co.ledger.core
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.exceptions.InvalidCurrencyForErc20Operation
 import co.ledger.wallet.daemon.models.Wallet.RichCoreWallet
 import co.ledger.wallet.daemon.models.coins.Coin.TransactionView

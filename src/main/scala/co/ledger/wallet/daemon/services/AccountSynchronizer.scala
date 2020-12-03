@@ -42,7 +42,7 @@ import scala.util.control.NonFatal
 class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, synchronizerFactory: AccountSyncModule.AccountSynchronizerFactory, scheduler: Timer)
   extends DaemonService {
 
-  import co.ledger.wallet.daemon.context.ApplicationContext.synchronizationPool
+  import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
   import com.twitter.util.Duration
 
   // When we start ASM, we register the existing accountsSuccess
@@ -320,12 +320,12 @@ class AccountSynchronizer(cache: DaemonCache,
 
 
   private def lastAccountBlockHeight: Future[BlockHeight] = {
-    import co.ledger.wallet.daemon.context.ApplicationContext.synchronizationPool
+    import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
     account.getLastBlock()
-      .map(h => BlockHeight(h.getHeight))(synchronizationPool)
+      .map(h => BlockHeight(h.getHeight))(IOPool)
       .recover {
         case _: co.ledger.core.implicits.BlockNotFoundException => BlockHeight(0)
-      }(synchronizationPool)
+      }(IOPool)
   }
 
   private def updatedSyncingStatus(atStartTime: BlockHeight) = lastAccountBlockHeight.map(lastHeight => Syncing(atStartTime.value, lastHeight.value))
@@ -357,24 +357,24 @@ class AccountSynchronizer(cache: DaemonCache,
 
 
   private def sync(): Future[SyncResult] = {
-    import co.ledger.wallet.daemon.context.ApplicationContext.synchronizationPool
+    import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 
     log.info(s"#Sync : start syncing $accountInfo")
     account
-      .sync(poolName.name, walletName)(synchronizationPool)
+      .sync(poolName.name, walletName)(IOPool)
       .flatMap { result =>
         if (result.syncResult) {
           log.info(s"#Sync : $accountInfo has been synced : $result")
-          lastAccountBlockHeight.map(SyncSuccess)(synchronizationPool)
+          lastAccountBlockHeight.map(SyncSuccess)(IOPool)
         } else {
           log.error(s"#Sync : $accountInfo has FAILED")
           Future.successful(SyncFailure(s"#Sync : Lib core failed to sync the account $accountInfo"))
         }
-      }(synchronizationPool)
+      }(IOPool)
       .recoverWith { case NonFatal(t) =>
         log.error(t, s"#Sync Failed to sync account: $accountInfo")
         Future.successful(SyncFailure(t.getMessage))
-      }(synchronizationPool)
+      }(IOPool)
   }
 }
 

@@ -3,7 +3,7 @@ package co.ledger.wallet.daemon.database
 import java.sql.Timestamp
 import java.util.Date
 
-import co.ledger.wallet.daemon.context.ApplicationContext.databaseEc
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.database.DBMigrations.Migrations
 import co.ledger.wallet.daemon.exceptions._
 import com.twitter.inject.Logging

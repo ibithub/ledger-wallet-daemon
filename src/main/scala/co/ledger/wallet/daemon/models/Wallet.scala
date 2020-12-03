@@ -14,7 +14,6 @@ import com.twitter.inject.Logging
 import scala.collection.JavaConverters._
 import scala.collection._
 import scala.concurrent.{ExecutionContext, Future}
-import co.ledger.core.implicits._
 
 object Wallet extends Logging {
 
@@ -115,20 +114,18 @@ object Wallet extends Logging {
   private def accountCreationEpilogue(coreAccount: Future[core.Account], accountIndex: Int, w: core.Wallet)
                                      (implicit ec: ExecutionContext): Future[core.Account] = {
     coreAccount.map { coreA =>
-      info(LogMsgMaker.newInstance("Account created").append("index", coreA.getIndex).append("wallet_name", w.getName).toString())
+      logger.info(s"Account created - index=${coreA.getIndex} wallet_name=${w.getName}")
       coreA
     }.recoverWith {
       case e: co.ledger.core.implicits.InvalidArgumentException =>
         Future.failed(CoreBadRequestException(e.getMessage, e))
-      case e if e.isInstanceOf[AccountAlreadyExistsException] ||  e.isInstanceOf[IllegalArgumentException] =>
+      case e if e.isInstanceOf[AccountAlreadyExistsException] || e.isInstanceOf[IllegalArgumentException] =>
         for {
           _ <- Future(warn(LogMsgMaker.newInstance("Account already exist")
             .append("index", accountIndex).append("wallet_name", w.getName)
             .append("coreError", s"${'"'}${e.getMessage}${'"'}").toString()))
           a <- w.getAccount(accountIndex)
         } yield a
-    }.map { coreA =>
-      coreA
     }
   }
 

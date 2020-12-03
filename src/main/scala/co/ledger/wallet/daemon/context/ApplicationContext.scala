@@ -8,18 +8,12 @@ import com.twitter.concurrent.NamedPoolThreadFactory
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
 object ApplicationContext {
-  /**
-    * Execution context dedicated to DB access waiting tasks
-    */
-  implicit val databaseEc: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(4 * Runtime.getRuntime.availableProcessors(),
-      new NamedPoolThreadFactory("walletdaemon-db-access")))
 
   /**
     * Execution Context dedicated for waiting synchronization
     */
-  implicit val synchronizationPool: ExecutionContextExecutorService =
-    ExecutionContext.fromExecutorService(Executors.newCachedThreadPool(new NamedPoolThreadFactory("walletdaemon-sync")))
+  implicit val IOPool: ExecutionContextExecutorService =
+    ExecutionContext.fromExecutorService(Executors.newCachedThreadPool(new NamedPoolThreadFactory("walletdaemon-IO")))
 
   /**
     * Libcore thread dispatcher context

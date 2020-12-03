@@ -2,7 +2,7 @@ package co.ledger.wallet.daemon.database
 
 import java.util.UUID
 
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.exceptions.WalletPoolNotFoundException
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Operations.PackedOperationsView
