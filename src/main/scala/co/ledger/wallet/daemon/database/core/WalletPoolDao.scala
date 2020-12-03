@@ -41,6 +41,7 @@ class WalletPoolDao(poolName: String)(implicit val ec: ExecutionContext) extends
     case WalletType.ETHEREUM => ethDao
     case WalletType.RIPPLE => xrpDao
     case WalletType.STELLAR => xlmDao
+    case WalletType.TEZOS => xtzDao
     case _ => throw new NotImplementedError(s"Dao not implemented for $wt")
   }
 
