@@ -31,9 +31,8 @@ object ApplicationContext {
   /**
     * Libcore http call ExcutionContext
     */
-  val httpEc: ExecutionContext =
-    ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(2 * Runtime.getRuntime.availableProcessors(),
-      new NamedPoolThreadFactory("libcore-http")))
+  val httpEc: ExecutionContext = ExecutionContext.fromExecutorService(
+    Executors.newCachedThreadPool(new NamedPoolThreadFactory("libcore-http")))
 
   /**
     * Libcore http call ExcutionContext
