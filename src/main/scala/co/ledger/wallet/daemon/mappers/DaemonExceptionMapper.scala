@@ -27,11 +27,11 @@ class DaemonExceptionMapper @Inject()(response: ResponseBuilder)
           daemonExceptionInfo(e) + ("next_cursor" -> next, "previous_cursor" -> previous),
           response)
       case wnfe: WalletNotFoundException =>
-        ResponseSerializer.serializeBadRequest(request,
+        ResponseSerializer.serializeNotFound(request,
           daemonExceptionInfo(wnfe) + ("wallet_name" -> wnfe.walletName),
           response)
       case wpnfe: WalletPoolNotFoundException =>
-        ResponseSerializer.serializeBadRequest(request,
+        ResponseSerializer.serializeNotFound(request,
           daemonExceptionInfo(wpnfe) + ("pool_name" -> wpnfe.poolName),
           response)
       case wpaee: WalletPoolAlreadyExistException =>
