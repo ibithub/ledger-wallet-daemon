@@ -30,7 +30,8 @@ postgres = {
     db_name_prefix = ${?CORE_PG_DB_NAME_PREFIX}
     pool_size = 10
     pool_size = ${?CORE_PG_CONNECTION_POOL_SIZE_PER_WALLET_POOL}
-
+    enable_user_pref = false
+    enable_user_pref = ${?USER_PREFERENCES_ON_PG}
     url = "jdbc:postgresql://"${postgres.host}":"${postgres.port}"/"${postgres.db_name}"?user="${postgres.username}"&password="${postgres.password}
     url = ${?WALLET_JDBC_URL}
 }
