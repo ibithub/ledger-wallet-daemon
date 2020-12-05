@@ -181,7 +181,7 @@ class AccountsApiTest extends APIFeatureTest {
     assert(walPoolView.findValue("wallet_count").asInt() == 3)
     info(s"Pool is = $pool and $walPoolView")
     deletePool(poolName)
-    getPool(poolName, Status.NotFound)
+    getPool(poolName, Status.BadRequest)
   }
 
   test("AccountsApi#Create account and delete specific account") {
