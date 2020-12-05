@@ -262,7 +262,6 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
 
 object Pool extends Logging {
   private val config = ConfigFactory.load()
-  var preferenceBackend: PostgresPreferenceBackend = null
 
   def newInstance(coreP: core.WalletPool, id: Long): Pool = {
     new Pool(coreP, id)
@@ -292,11 +291,15 @@ object Pool extends Logging {
         }
         dbName match {
           case Success((cppUrl, jdbcUrl)) =>
-            info(s"Using PostgreSQL as core preference database $jdbcUrl")
-            preferenceBackend = new PostgresPreferenceBackend(Database.forURL(jdbcUrl))
-            preferenceBackend.init()
-            builder.setExternalPreferencesBackend(preferenceBackend)
-            builder.setInternalPreferencesBackend(preferenceBackend)
+            if (config.getBoolean("postgres.enable_user_pref")) {
+              info(s"Using PostgreSQL as user preference database : jdbcUrl:$jdbcUrl - cppUrl:$cppUrl")
+              val preferenceBackend = new PostgresPreferenceBackend(Database.forURL(jdbcUrl))
+              preferenceBackend.init()
+              builder.setExternalPreferencesBackend(preferenceBackend)
+              builder.setInternalPreferencesBackend(preferenceBackend)
+            } else {
+              info(s"Using PostgreSQL as database $cppUrl")
+            }
             poolConfig.putString("DATABASE_NAME", cppUrl)
             val backend = core.DatabaseBackend.getPostgreSQLBackend(config.getInt("postgres.pool_size"))
             builder.setDatabaseBackend(backend)
