@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.utils
 
 import co.ledger.wallet.daemon.ServerImpl
-import co.ledger.wallet.daemon.services.OperationQueryParams
+import co.ledger.wallet.daemon.services.{OperationQueryParams, Publisher}
 import com.twitter.finagle.http.{Response, Status}
 import com.twitter.finatra.http.EmbeddedHttpServer
 import com.twitter.inject.Mockito
@@ -9,7 +9,10 @@ import com.twitter.inject.server.FeatureTest
 
 trait APIFeatureTest extends FeatureTest with Mockito {
   val serverImpl = new ServerImpl
+  val publisher: Publisher = smartMock[Publisher]
+
   override val server: EmbeddedHttpServer = new EmbeddedHttpServer(serverImpl)
+    .bind[Publisher].toInstance(publisher)
 
   def parse[A](response: Response)(implicit manifest: Manifest[A]): A = server.mapper.parse[A](response)
 
@@ -59,7 +62,7 @@ trait APIFeatureTest extends FeatureTest with Mockito {
   }
 
   def assertRepushAccountOperations(poolName: String, walletName: String, accIdx: Int, expected: Status): Response = {
-    server.httpPost(s"/pools/$poolName/wallets/$walletName/accounts/$accIdx/operations/repush", "", headers = defaultHeaders, andExpect = expected)
+    server.httpPost(s"/pools/$poolName/wallets/$walletName/accounts/$accIdx/operations/repush", "", andExpect = expected)
   }
 
   def assertSyncAccount(poolName: String, walletName: String, accIdx: Int): Response = {
