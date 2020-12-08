@@ -91,7 +91,7 @@ When a new version of the libcore is available, we need to update our bindings.
 
 1. Make sure to have a PostgreSQL server running,
 
-2. For integration tests make sure to create required databases, you could use the `db.sh` for that:
+2. For integration tests make sure to create required databases, you could use the `dbs.sh` for that:
 
     ```
     ./dbs.sh <host> <port>
