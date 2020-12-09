@@ -2,25 +2,18 @@ package co.ledger.wallet.daemon.api
 
 import co.ledger.core._
 import co.ledger.wallet.daemon.controllers.TransactionsController.CreateXTZTransactionRequest
-import co.ledger.wallet.daemon.models.{DelegationView, FreshAddressView, Pool}
-import co.ledger.wallet.daemon.models.Operations.OperationView
 import co.ledger.wallet.daemon.models.coins.UnsignedTezosTransactionView
-import co.ledger.wallet.daemon.services.{OperationQueryParams, SyncStatus}
+import co.ledger.wallet.daemon.models.{DelegationView, FreshAddressView}
+import co.ledger.wallet.daemon.services.OperationQueryParams
 import co.ledger.wallet.daemon.utils.APIFeatureTest
 import com.fasterxml.jackson.databind.JsonNode
 import com.twitter.finagle.http.Status
-import org.mockito.ArgumentCaptor
-import org.mockito.Mockito.{times, verify, when}
-
-import scala.concurrent.Future
 
 class XTZAccountsApiTest extends APIFeatureTest {
   val poolName = "tez_test_pool"
 
   override def beforeAll(): Unit = {
     createPool(poolName)
-    when(publisher.publishAccount(any[Pool], any[Account], any[Wallet], any[SyncStatus])).thenReturn(Future.unit)
-    // when(publisher.publishOperation(any[OperationView], any[Account], any[Wallet], meq(poolName))).thenReturn(Future.unit)
   }
 
   override def afterAll(): Unit = {
@@ -44,24 +37,12 @@ class XTZAccountsApiTest extends APIFeatureTest {
     val walletName = "xtzWalletAccountCreation"
     assertWalletCreation(poolName, walletName, "tezos", Status.Ok)
     assertCreateAccount(CORRECT_BODY_XTZ, poolName, walletName, Status.Ok)
-    assertSyncPools(Status.Ok)
-    // assertRepushAccountOperations(poolName, walletName, 0, Status.Ok)
     val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, index = 0, Status.Ok))
     assert(addresses.nonEmpty)
     info(s"Here are addresses : $addresses")
     assertSyncAccount(poolName, walletName, 0)
     val operations = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 1000, 0), Status.Ok))
     assert(operations.nonEmpty)
-    // verify XTZ NRT integration
-    val walletCaptor = ArgumentCaptor.forClass(classOf[Wallet])
-    verify(publisher, times(1)).publishAccount(any[Pool], any[Account], walletCaptor.capture(), any[SyncStatus])
-    assert(walletCaptor.getValue.getWalletType == WalletType.TEZOS)
-    val walletOperationCaptor = ArgumentCaptor.forClass(classOf[Wallet])
-    val operationCaptor = ArgumentCaptor.forClass(classOf[OperationView])
-    verify(publisher, times(2)).publishOperation(operationCaptor.capture(), any[Account], walletOperationCaptor.capture(), meq(poolName))
-    assert(walletOperationCaptor.getValue.getWalletType == WalletType.TEZOS)
-    assert(operationCaptor.getValue.opType == OperationType.RECEIVE)
-    assert(operationCaptor.getValue.recipients.contains("tz2BFCee4VSARxdc6Tv7asSiYZBF957e4cwd"))
   }
 
   test("Create XTZ Transaction") {
