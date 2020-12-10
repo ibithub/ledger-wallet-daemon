@@ -24,7 +24,7 @@ $command -h $host -p $port wallet_daemon -U $user
 echo "     |--> wallet_daemon Done"
 
 # Databases used in IT tests
-tests=(default_test_pool create_delete_pool walletpooldao databasedaotest account_test pool_a pool_b pool_c empty_pool walletpool_test)
+tests=(default_test_pool create_delete_pool walletpooldao databasedaotest account_test pool_a pool_b pool_c empty_pool walletpool_test account_api_test_pool)
 
 # Create all DBs with names above
 for elem in "${tests[@]}"

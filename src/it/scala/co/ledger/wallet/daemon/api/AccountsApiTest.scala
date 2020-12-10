@@ -12,7 +12,7 @@ import com.twitter.finagle.http.{Response, Status}
 import java.util.UUID
 
 class AccountsApiTest extends APIFeatureTest {
-  val poolName = "default_test_pool"
+  val poolName = "account_api_test_pool"
 
   override def beforeAll(): Unit = {
     super.beforeAll()
