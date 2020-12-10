@@ -8,7 +8,7 @@ import com.twitter.finagle.http.{Request, Response}
 import com.twitter.finagle.service.{Backoff, RetryBudget}
 import com.twitter.finagle.{Http, Service}
 import com.twitter.inject.Logging
-import com.twitter.util.Duration
+import com.twitter.util.{Duration, StorageUnit}
 
 import scala.util.Try
 
@@ -61,6 +61,7 @@ object ScalaHttpClientPool extends Logging {
   // FIXME Client sharing ?
   private val client = Http.client
     .withRetryBudget(budget)
+    .withMaxResponseSize(StorageUnit.fromBytes(Int.MaxValue))
     .withRetryBackoff(Backoff.linear(
       Duration.fromMilliseconds(DaemonConfiguration.explorer.client.retryBackoff),
       Duration.fromMilliseconds(DaemonConfiguration.explorer.client.retryBackoff)))
