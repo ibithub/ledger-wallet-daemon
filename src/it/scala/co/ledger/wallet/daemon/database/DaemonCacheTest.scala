@@ -39,7 +39,7 @@ class DaemonCacheTest extends AssertionsForJUnit {
   }
 
   @Test def verifyCreateAndDeletePool(): Unit = {
-    val poolRandom = Await.result(cache.createWalletPool(PoolInfo(poolName), "config"), Duration.Inf)
+    val poolRandom = Await.result(cache.createWalletPool(PoolInfo(createDeletePoolName), "config"), Duration.Inf)
     val beforeDeletion = Await.result(cache.getAllPools, Duration.Inf)
     assertTrue(beforeDeletion.contains(poolRandom))
 
@@ -97,13 +97,18 @@ class DaemonCacheTest extends AssertionsForJUnit {
 }
 
 object DaemonCacheTest {
+
+  private val cache: DefaultDaemonCache = new DefaultDaemonCache()
+  private val walletName = "DaemonCacheTestWallet"
+  private val poolName = "default_test_pool"
+  private val createDeletePoolName = "create_delete_pool"
+
   @BeforeClass def initialization(): Unit = {
     NativeLibLoader.loadLibs()
     Await.result(cache.dbMigration, Duration.Inf)
     Await.result(cache.createWalletPool(PoolInfo("pool_a"), ""), Duration.Inf)
     Await.result(cache.createWalletPool(PoolInfo("pool_b"), ""), Duration.Inf)
-    Await.result(cache.createWalletPool(PoolInfo("pool_a"), ""), Duration.Inf)
-    Await.result(cache.createWalletPool(PoolInfo("pool_b"), ""), Duration.Inf)
+    Await.result(cache.createWalletPool(PoolInfo(createDeletePoolName), ""), Duration.Inf)
     Await.result(cache.createWalletPool(PoolInfo(poolName), ""), Duration.Inf)
     Await.result(cache.createWallet("bitcoin", WalletInfo(walletName, poolName), isNativeSegwit = false), Duration.Inf)
     val walletInfo = WalletInfo(walletName, poolName)
@@ -114,10 +119,5 @@ object DaemonCacheTest {
         DerivationView("44'/0'", "main", Option("0437bc83a377ea025e53eafcd18f299268d1cecae89b4f15401926a0f8b006c0f7ee1b995047b3e15959c5d10dd1563e22a2e6e4be9572aa7078e32f317677a901"), Option("d1bb833ecd3beed6ec5f6aa79d3a424d53f5b99147b21dbc00456b05bc978a71")))))}
       , Duration.Inf)
     Await.result(cache.getAccountOperations(1, 1, AccountInfo(0, walletName, poolName)), Duration.Inf)
-    Await.result(cache.dbMigration, Duration.Inf)
   }
-
-  private val cache: DefaultDaemonCache = new DefaultDaemonCache()
-  private val walletName = "DaemonCacheTestWallet"
-  private val poolName = "default_test_pool"
 }
