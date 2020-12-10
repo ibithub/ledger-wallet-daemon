@@ -5,6 +5,7 @@
         </encoder>
     </appender>
     <logger name="co.ledger.wallet.daemon" level="debug" />
+    <logger name="co.ledger.wallet.daemon.database.core" level="error" />
     <logger name="slick" level="error" />
     <logger name="io.netty" level="error" />
     <logger name="com.twitter" level="error" />

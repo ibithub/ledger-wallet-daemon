@@ -34,7 +34,7 @@ test in assembly := {}
 
 // Use test configuration files
 // Use test fixtures and resources in integration tests
-unmanagedResourceDirectories in IntegrationTest += baseDirectory.value / "src" / "test" / "resources"
+unmanagedResourceDirectories in IntegrationTest += baseDirectory.value / "src" / "it" / "resources"
 
 // -a: Show full stack traces
 // -q: Hide logs for successful tests
