@@ -15,6 +15,7 @@ import org.scalatest.junit.AssertionsForJUnit
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.{Failure, Try}
 
 class DaemonCacheTest extends AssertionsForJUnit {
 
@@ -22,8 +23,9 @@ class DaemonCacheTest extends AssertionsForJUnit {
 
 
   @Test def verifyGetPoolNotFound(): Unit = {
-    val pool = Await.result(cache.getWalletPool(PoolInfo("pool_not_exist", PUB_KEY_1)), Duration.Inf)
-    assert(!pool.isDefined)
+    val pool = Try(Await.result(cache.getWalletPool(PoolInfo("pool_not_exist", PUB_KEY_1)), Duration.Inf))
+    assert(pool.isFailure)
+    assert(pool.asInstanceOf[Failure[Option[Pool]]].exception.isInstanceOf[WalletPoolNotFoundException])
   }
 
   @Test def verifyDeleteNotExistPool(): Unit = {
@@ -129,11 +131,12 @@ object DaemonCacheTest {
     Await.result(cache.createWalletPool(PoolInfo(POOL_NAME, user3.get.pubKey), ""), Duration.Inf)
     Await.result(cache.createWallet("bitcoin", WalletInfo(WALLET_NAME, POOL_NAME, user3.get.pubKey), isNativeSegwit = false), Duration.Inf)
     val walletInfo = WalletInfo(WALLET_NAME, POOL_NAME, user3.get.pubKey)
-    Await.result(cache.withWallet(walletInfo){w =>
+    Await.result(cache.withWallet(walletInfo) { w =>
       w.addAccountIfNotExist(
-      AccountDerivationView(0, List(
-        DerivationView("44'/0'/0'", "main", Option("0437bc83a377ea025e53eafcd18f299268d1cecae89b4f15401926a0f8b006c0f7ee1b995047b3e15959c5d10dd1563e22a2e6e4be9572aa7078e32f317677a901"), Option("d1bb833ecd3beed6ec5f6aa79d3a424d53f5b99147b21dbc00456b05bc978a71")),
-        DerivationView("44'/0'", "main", Option("0437bc83a377ea025e53eafcd18f299268d1cecae89b4f15401926a0f8b006c0f7ee1b995047b3e15959c5d10dd1563e22a2e6e4be9572aa7078e32f317677a901"), Option("d1bb833ecd3beed6ec5f6aa79d3a424d53f5b99147b21dbc00456b05bc978a71")))))}
+        AccountDerivationView(0, List(
+          DerivationView("44'/0'/0'", "main", Option("0437bc83a377ea025e53eafcd18f299268d1cecae89b4f15401926a0f8b006c0f7ee1b995047b3e15959c5d10dd1563e22a2e6e4be9572aa7078e32f317677a901"), Option("d1bb833ecd3beed6ec5f6aa79d3a424d53f5b99147b21dbc00456b05bc978a71")),
+          DerivationView("44'/0'", "main", Option("0437bc83a377ea025e53eafcd18f299268d1cecae89b4f15401926a0f8b006c0f7ee1b995047b3e15959c5d10dd1563e22a2e6e4be9572aa7078e32f317677a901"), Option("d1bb833ecd3beed6ec5f6aa79d3a424d53f5b99147b21dbc00456b05bc978a71")))))
+    }
       , Duration.Inf)
     Await.result(cache.getAccountOperations(1, 1, AccountInfo(0, WALLET_NAME, POOL_NAME, user3.get.pubKey)), Duration.Inf)
     Await.result(cache.syncOperations(), Duration.Inf)
@@ -145,5 +148,5 @@ object DaemonCacheTest {
   private val PUB_KEY_2 = UUID.randomUUID().toString
   private val PUB_KEY_3 = UUID.randomUUID().toString
   private val WALLET_NAME = "WALLET_NAME"
-  private val POOL_NAME = "POOL_NAME"
+  private val POOL_NAME = "pool_name"
 }
