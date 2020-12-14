@@ -46,8 +46,8 @@ class HttpCoreClientPool(val ec: ExecutionContext, client: ScalaHttpClientPool, 
       endpoint <- getEndpoint(httpCoreRequest)
       request <- newRequest(httpCoreRequest, endpoint)
       response <- client.execute(endpoint.host, request).asScala()
-      _ = info(s"Core Http received from ${httpCoreRequest.getUrl} status=${response.status.code} " +
-               s"error=${isOnError(response.status.code)} " +
+      _ = debug(s"Core Http received from ${httpCoreRequest.getUrl} status=${response.status.code} " +
+               s"success=${!isOnError(response.status.code)} " +
                s"- statusText=${response.status.reason}")
       connection = httpResponseToConnection(response)
     } yield connection

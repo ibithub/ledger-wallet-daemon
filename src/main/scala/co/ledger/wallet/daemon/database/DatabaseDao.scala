@@ -36,7 +36,7 @@ class DatabaseDao @Inject()(db: Database) extends Logging {
         def load(key: PoolDTOCacheKey): PoolDto = {
           Await.result(loadPool(key.userId, key.poolName), 10.seconds) match {
             case Some(poolDto) =>
-              logger.info(s"PoolDto Found with key : $key")
+              logger.debug(s"PoolDto Found with key : $key")
               poolDto
             case None => throw WalletPoolNotFoundException(s"Failed to retrieve pool for $key")
           }
