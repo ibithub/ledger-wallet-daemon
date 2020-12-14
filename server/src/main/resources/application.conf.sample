@@ -54,7 +54,6 @@ h2mem1 = {
   username="sql"
   password=""
 }
-
 realtimeobservation = true
 
 synchronization = {

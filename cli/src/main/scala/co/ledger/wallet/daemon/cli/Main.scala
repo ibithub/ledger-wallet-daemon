@@ -1,0 +1,7 @@
+package co.ledger.wallet.daemon.cli
+
+object Main {
+  def main(args: Array[String]): Unit = {
+    println("Hello, world!")
+  }
+}
