@@ -159,6 +159,7 @@ lazy val server = (project in file("server"))
       "com.twitter" %% "inject-core" % versions.finatra % "it" classifier "tests",
       "com.twitter" %% "inject-modules" % versions.finatra % "it" classifier "tests"
     ),
+    unmanagedBase := baseDirectory.value / ".."/ "lib",
     mainClass in Compile := Some("co.ledger.wallet.daemon.Server")
   )
 
@@ -166,8 +167,7 @@ lazy val cli = (project in file("cli"))
   .settings(Defaults.defaultConfigs,
     Seq(libraryDependencies += "org.rogach" %% "scallop" % "4.0.0"),
     mainClass in Compile := Some("co.ledger.wallet.daemon.cli.Main")
-  )
-// .dependsOn(server)
+  ).dependsOn(server)
 
 lazy val root = (project in file("."))
   .aggregate(server, cli)
