@@ -168,7 +168,7 @@ trait APIFeatureTest extends FeatureTest {
       syncStatus.value == "synced" && syncStatus.asInstanceOf[Synced].atHeight > 0L
     }
 
-    var attempt = 240
+    var attempt = 2400
     while (!isSynced && attempt > 0) {
       attempt -= 1
       Thread.sleep(500)
