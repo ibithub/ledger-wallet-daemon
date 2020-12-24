@@ -105,6 +105,7 @@ lazy val versions = new {
   val websocket  = "1.1"
   val web3j      = "4.5.1"
   val guava      = "28.1-jre"
+  val scalaredis = "3.30"
 }
 // scalastyle:on
 
@@ -133,7 +134,7 @@ lazy val root = (project in file("."))
       "io.circe"                     %% "circe-core"             % versions.circe,
       "io.circe"                     %% "circe-generic"          % versions.circe,
       "io.circe"                     %% "circe-parser"           % versions.circe,
-
+      "net.debasishg"                %% "redisclient"            % versions.scalaredis,
       // Tests dependencies
       "org.specs2"                   %% "specs2-mock"            % versions.specs2     % "it",
       "com.google.inject.extensions" %  "guice-testlib"          % versions.guice      % "it",

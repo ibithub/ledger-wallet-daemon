@@ -1,0 +1,22 @@
+version: '2.4'
+
+services:
+  postgres:
+    image: postgres:11.6
+    environment:
+      POSTGRES_DB: wallet_daemon
+      POSTGRES_USER: ledger
+      POSTGRES_PASSWORD: ledger_secret
+    healthcheck:
+      test: "pg_isready -h localhost -p 5432 -U ledger -d postgres"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis
+    environment:
+      REDIS_HOST: redis
+    ports:
+      - "6379:6379"

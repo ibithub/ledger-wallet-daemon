@@ -60,6 +60,7 @@ jobs:
           POSTGRES_USER: ledger
           POSTGRES_PASSWORD: ledger_secret
         command: -c "ssl=on" -c "ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key" -c "ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem"
+      - image: redis
     steps:
       - checkout
       - restore_cache: *dependencies_cache
@@ -118,6 +119,10 @@ workflows:
           requires:
             - docker/build_image
           filters: *filter_all_tags
+          dgoss_docker_env_vars: |-
+            WALLET_DAEMON_DATABASE_ENGINE=sqlite3
+            CORE_DATABASE_ENGINE=sqlite3
+
       - docker/publish_image:
           requires:
             - docker/test_image

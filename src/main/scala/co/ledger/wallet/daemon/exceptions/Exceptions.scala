@@ -99,7 +99,7 @@ case class DaemonDatabaseException(msg: String, t: Throwable) extends DaemonExce
   def code: Int = ErrorCodes.DAEMON_DATABASE_EXCEPTION
 }
 
-case class CoreDatabaseException(msg: String, t: Throwable) extends DaemonException(msg, t) {
+case class CoreDatabaseException(msg: String, t: Throwable = null) extends DaemonException(msg, t) {
   def code: Int = ErrorCodes.CORE_DATABASE_EXCEPTION
 }
 
