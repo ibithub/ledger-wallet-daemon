@@ -6,6 +6,8 @@ core_database_engine = ${?CORE_DATABASE_ENGINE}
 core = {
   ops_threads_factor = 4
   ops_threads_factor = ${?CORE_OPS_THREADS_FACTOR}
+  http_client_retries = 10
+  http_client_retries = ${?CORE_HTTP_RETRIES}
 }
 
 sqlite3 = {
@@ -188,6 +190,19 @@ explorer = {
         fallback = ${?WALLET_ETH_ROPSTEN_EXPLORER_FALLBACK}
         disable_sync_token = false
         disable_sync_token = ${?ETH_ROPSTEN_DISABLE_SYNC_TOKEN}
+      }
+      {
+        currency = litecoin
+        host = "https://explorers.api.vault.ledger.com"
+        host = ${?WALLET_LTC_EXPLORER_ENDPOINT}
+        port = 443
+        port = ${?WALLET_LTC_EXPLORER_PORT}
+        explorer_version = "v3"
+        explorer_version = ${?WALLET_LTC_EXPLORER_VERSION}
+        proxyuse = true
+        proxyuse = ${?WALLET_LTC_EXPLORER_PROXYUSE}
+        disable_sync_token = true
+        disable_sync_token = ${?LTC_DISABLE_SYNC_TOKEN}
       }
       {
         currency = ripple

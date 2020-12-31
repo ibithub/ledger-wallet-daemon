@@ -7,20 +7,42 @@ import java.util.concurrent.Executors
 import co.ledger.wallet.daemon.database.DBMigrations.Migrations
 import co.ledger.wallet.daemon.exceptions._
 import co.ledger.wallet.daemon.utils.HexUtils
+import com.google.common.cache.{CacheBuilder, CacheLoader, LoadingCache}
 import com.twitter.inject.Logging
 import javax.inject.{Inject, Singleton}
 import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.TransactionIsolation
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 @Singleton
 class DatabaseDao @Inject()(db: Database) extends Logging {
+
   import Tables._
   import Tables.profile.api._
+
   implicit lazy val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool(
     (r: Runnable) => new Thread(r, "database-access")
   ))
+
+
+  case class PoolDTOCacheKey(userId: Long, poolName: String)
+
+  private val cachedPoolDTO: LoadingCache[PoolDTOCacheKey, PoolDto] =
+    CacheBuilder.newBuilder()
+      .maximumSize(200)
+      .build[PoolDTOCacheKey, PoolDto](new CacheLoader[PoolDTOCacheKey, PoolDto] {
+        def load(key: PoolDTOCacheKey): PoolDto = {
+          Await.result(loadPool(key.userId, key.poolName), 10.seconds) match {
+            case Some(poolDto) =>
+              logger.info(s"PoolDto Found with key : $key")
+              poolDto
+            case None => throw WalletPoolNotFoundException(s"Failed to retrieve pool for $key")
+          }
+        }
+      })
+
 
   def migrate(): Future[Unit] = {
     info("Start database migration")
@@ -28,25 +50,25 @@ class DatabaseDao @Inject()(db: Database) extends Logging {
     db.run(lastMigrationVersion.transactionally) recover {
       case _ => -1
     } flatMap { currentVersion => {
-        info(s"Current database version at $currentVersion")
-        val maxVersion = Migrations.keys.toArray.sortWith(_ > _).head
+      info(s"Current database version at $currentVersion")
+      val maxVersion = Migrations.keys.toArray.sortWith(_ > _).head
 
-        def migrate(version: Int, maxVersion: Int): Future[Unit] = {
-          if (version > maxVersion) {
-            info(s"Database version up to date at $maxVersion")
-            Future.unit
-          } else {
-            info(s"Migrating version $version / $maxVersion")
-            val rollbackMigrate = DBIO.seq(Migrations(version), insertDatabaseVersion(version))
-            db.run(rollbackMigrate.transactionally).flatMap { _ =>
-              info(s"version $version / $maxVersion migration done")
-              migrate(version + 1, maxVersion)
-            }
+      def migrate(version: Int, maxVersion: Int): Future[Unit] = {
+        if (version > maxVersion) {
+          info(s"Database version up to date at $maxVersion")
+          Future.unit
+        } else {
+          info(s"Migrating version $version / $maxVersion")
+          val rollbackMigrate = DBIO.seq(Migrations(version), insertDatabaseVersion(version))
+          db.run(rollbackMigrate.transactionally).flatMap { _ =>
+            info(s"version $version / $maxVersion migration done")
+            migrate(version + 1, maxVersion)
           }
         }
-
-        migrate(currentVersion + 1, maxVersion)
       }
+
+      migrate(currentVersion + 1, maxVersion)
+    }
     }
   }
 
@@ -57,25 +79,36 @@ class DatabaseDao @Inject()(db: Database) extends Logging {
       _ <- query.delete
     } yield result
     db.run(action.withTransactionIsolation(TransactionIsolation.Serializable)).map { row =>
+      cachedPoolDTO.invalidate(PoolDTOCacheKey(userId, poolName))
       row.map(createPool)
     }
   }
 
   def getPools(userId: Long): Future[Seq[PoolDto]] =
-    safeRun(pools.filter(pool => pool.userId === userId.bind).sortBy(_.id.desc).result).map { rows => rows.map(createPool)}
+    safeRun(pools.filter(pool => pool.userId === userId.bind).sortBy(_.id.desc).result).map { rows => rows.map(createPool) }
 
   def getPool(userId: Long, poolName: String): Future[Option[PoolDto]] =
-    safeRun(pools.filter(pool => pool.userId === userId && pool.name === poolName).result.headOption).map { row => row.map(createPool)}
+    Future {
+      Some(cachedPoolDTO.get(PoolDTOCacheKey(userId, poolName)))
+    }
+      .recoverWith {
+        case e =>
+          logger.error(s"Failed to retrieve pool with UserId=$userId - PoolName=$poolName", e)
+          Future.failed(WalletPoolNotFoundException(s"Wallet Pool not found for UserId=$userId - PoolName=$poolName"))
+      }
+
+  private def loadPool(userId: Long, poolName: String): Future[Option[PoolDto]] =
+    safeRun(pools.filter(pool => pool.userId === userId && pool.name === poolName).result.headOption).map { row => row.map(createPool) }
 
   def getUser(targetPubKey: Array[Byte]): Future[Option[UserDto]] = {
     getUser(HexUtils.valueOf(targetPubKey))
   }
 
   def getUser(pubKey: String): Future[Option[UserDto]] =
-    safeRun(filterUser(pubKey).result.headOption).map { userRow => userRow.map(createUser)}
+    safeRun(filterUser(pubKey).result.headOption).map { userRow => userRow.map(createUser) }
 
   def getUsers: Future[Seq[UserDto]] =
-    safeRun(users.result).map { rows => rows.map(createUser)}
+    safeRun(users.result).map { rows => rows.map(createUser) }
 
   def insertPool(newPool: PoolDto): Future[Long] = {
     safeRun(filterPool(newPool.name, newPool.userId).exists.result.flatMap { exists =>
@@ -88,7 +121,7 @@ class DatabaseDao @Inject()(db: Database) extends Logging {
   }
 
   def insertUser(newUser: UserDto): Future[Long] = {
-    safeRun(filterUser(newUser.pubKey).exists.result.flatMap { (exists) =>
+    safeRun(filterUser(newUser.pubKey).exists.result.flatMap { exists =>
       if (!exists) {
         users.returning(users.map(_.id)) += createUserRow(newUser)
       } else {
@@ -131,6 +164,7 @@ class DatabaseDao @Inject()(db: Database) extends Logging {
 case class UserDto(pubKey: String, permissions: Int, id: Option[Long] = None) {
   override def toString: String = s"UserDto(id: $id, pubKey: $pubKey, permissions: $permissions)"
 }
+
 case class PoolDto(name: String, userId: Long, configuration: String, id: Option[Long] = None, dbBackend: String = "", dbConnectString: String = "") {
   override def toString: String = "PoolDto(" +
     s"id: $id, " +

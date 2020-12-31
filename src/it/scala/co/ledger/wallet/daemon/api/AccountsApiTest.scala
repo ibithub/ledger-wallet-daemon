@@ -181,7 +181,7 @@ class AccountsApiTest extends APIFeatureTest {
     assert(walPoolView.findValue("wallet_count").asInt() == 3)
     info(s"Pool is = $pool and $walPoolView")
     deletePool(poolName)
-    getPool(poolName, Status.NotFound)
+    getPool(poolName, Status.BadRequest)
   }
 
   test("AccountsApi#Create account and delete specific account") {
@@ -288,7 +288,6 @@ class AccountsApiTest extends APIFeatureTest {
     val previousOf4thBtch = parse[Map[String, JsonNode]](assertGetAccountOps("op_pool", "op_wallet", 0, OperationQueryParams(getUUID("previous", fourthBtch), None, 10, 1), Status.Ok))
     assert(thirdBtch.get("next") === previousOf4thBtch.get("next"))
     assert(thirdBtch.get("previous") === previousOf4thBtch.get("previous"))
-    deletePool("op_pool")
   }
 
   test("AccountsApi#Pool not exist") {
@@ -336,7 +335,6 @@ class AccountsApiTest extends APIFeatureTest {
     assert(addresses.size == 1)
     assertSyncAccount(poolName, walletName, 0)
     assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 5, 0), Status.Ok)
-    deletePool(poolName)
   }
 
   test("AccountsApi#Create ETH ropsten account") {
@@ -366,7 +364,6 @@ class AccountsApiTest extends APIFeatureTest {
 
     // Check that balance = 1.976594768488753681 Ether (https://ropsten.etherscan.io/address/0x2EaDEDe7034243Bd2E8a574E80aFDD60409AE5c4)
     assert(historyResponse.balances.head == BigInt.apply(1976594768488753681L))
-    deletePool(poolName)
   }
 
 
@@ -409,7 +406,6 @@ class AccountsApiTest extends APIFeatureTest {
     info(s"histo : $histoResponse")
     assert(histoResponse.balances.size == 3)
     assert(histoResponse.balances.head == BigInt("100000000000000000000"))
-    deletePool(poolName)
   }
 
   private val CORRECT_BODY_BITCOIN =
