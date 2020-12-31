@@ -20,6 +20,25 @@ services:
     ports:
       - "5432:5432"
     command: -c "ssl=on" -c "ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key" -c "ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem"
+  wallet-daemon:
+    image: ledgerhq/ledger-wallet-daemon:latest
+    environment:
+      CORE_DATABASE_ENGINE: postgres
+      CORE_PG_HOST: postgres-server-ssl
+      CORE_PG_USER: ledger
+      CORE_PG_PWD: ledger_secret
+      CORE_PG_DB_NAME_PREFIX: wallet_daemon_
+    entrypoint: /app/run.sh -Dscala.concurrent.context.numThreads=x8 -Dscala.concurrent.context.maxThreads=x8
+    healthcheck:
+      test: "command -v curl && curl -fsS http://wallet-daemon:9200/_health"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    ports:
+      - "9200:9200"
+    depends_on:
+      - postgres-server-ssl
   rabbitmq:
     image: rabbitmq:${RABBITMQ_VERSION:-management}
     command: rabbitmq-server
