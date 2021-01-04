@@ -1,4 +1,4 @@
-package co.ledger.wallet.daemon.libledger_core.debug
+package co.ledger.wallet.daemon.libledger_core.logger
 
 import co.ledger.core.{ExecutionContext, LogPrinter}
 import com.twitter.inject.Logging

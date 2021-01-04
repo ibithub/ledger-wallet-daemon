@@ -12,7 +12,7 @@ import co.ledger.wallet.daemon.database.{PoolDto, PostgresPreferenceBackend}
 import co.ledger.wallet.daemon.exceptions.{CoreDatabaseException, CurrencyNotFoundException, UnsupportedNativeSegwitException, WalletNotFoundException}
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.libledger_core.crypto.SecureRandomRNG
-import co.ledger.wallet.daemon.libledger_core.debug.NoOpLogPrinter
+import co.ledger.wallet.daemon.libledger_core.logger.NoOpLogPrinter
 import co.ledger.wallet.daemon.libledger_core.filesystem.ScalaPathResolver
 import co.ledger.wallet.daemon.models.Wallet._
 import co.ledger.wallet.daemon.schedulers.observers.SynchronizationResult
