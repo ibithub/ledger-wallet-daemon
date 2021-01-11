@@ -7,7 +7,7 @@ import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
 import co.ledger.wallet.daemon.clients.{ApiClient, ClientFactory}
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.libledger_core.metrics.LibCoreMetrics
-import co.ledger.wallet.daemon.libledger_core.metrics.LibCoreMetrics.AllocationMetric
+import co.ledger.wallet.daemon.libledger_core.metrics.LibCoreMetrics.{AllocationMetric, DurationMetric}
 import com.twitter.finagle.http.Request
 import com.twitter.finatra.http.Controller
 
@@ -44,8 +44,11 @@ class StatusController extends Controller {
   get("/_metrics/libcore") { request: Request =>
     info(s"GET _metrics/libcore $request")
     import MDCPropagatingExecutionContext.Implicits.global
-    LibCoreMetrics.fetch.map(LibCoreMetricsResponse.apply)
+    LibCoreMetrics.fetchAllocations.flatMap({ allocations =>
+      LibCoreMetrics.fetchDurations.map((allocations, _))
+    }).map((LibCoreMetricsResponse.apply _).tupled)
   }
+
 }
 
 object StatusController {
@@ -56,5 +59,5 @@ object StatusController {
 
   case class MetricsResponse(coreHttpCachedPool: Long, feesHttpCachedPool: Long, fallbackHttpCachedPool: Long)
 
-  case class LibCoreMetricsResponse(allocations: List[AllocationMetric])
+  case class LibCoreMetricsResponse(allocations: List[AllocationMetric], durations: List[DurationMetric])
 }
