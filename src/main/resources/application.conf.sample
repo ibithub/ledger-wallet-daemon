@@ -11,7 +11,7 @@ sqlite3 = {
   connectionPool = disabled
 }
 
-user-preferences {
+user-preferences = {
     storage=redis
     storage=${?PREFERENCES_STORAGE}
 }
