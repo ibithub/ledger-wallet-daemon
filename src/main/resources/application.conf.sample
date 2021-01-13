@@ -484,6 +484,14 @@ synchronization = {
   # delay between two synchronization
   sync_interval_in_seconds = 60
   sync_interval_in_seconds = ${?SYNC_INTERVAL_IN_SECONDS}
+
+  # max number of on going synchronizations
+  sync_ongoing_max = 4
+  sync_ongoing_max = ${?SYNC_ON_GOING_MAX}
+}
+
+account-synchronizer-mailbox {
+    mailbox-type = "co.ledger.wallet.daemon.services.AccountSynchronizerMailbox"
 }
 
 # AKKA specifics
