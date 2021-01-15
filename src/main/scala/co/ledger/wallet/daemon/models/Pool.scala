@@ -277,7 +277,7 @@ object Pool extends Logging {
       case unknown: String => throw CoreDatabaseException(s"Failed to configure wallet daemon's core user-preferences database, unknown value ${unknown}")
     }
 
-    Try(config.getString("core.core_database_engine")).toOption.getOrElse("sqlite3") match {
+    Try(config.getString("core_database_engine")).toOption.getOrElse("sqlite3") match {
       case "postgres" =>
         info("Using PostgreSql as core database engine")
         val dbName = for {
@@ -296,7 +296,7 @@ object Pool extends Logging {
         }
         dbName match {
           case Success(cppUrl) =>
-            val cnx = config.getInt("postgres.core.pool_size")
+            val cnx = config.getInt("postgres.pool_size")
             poolConfig.putString("DATABASE_NAME", cppUrl)
             val backend = core.DatabaseBackend.getPostgreSQLBackend(cnx)
             builder.setDatabaseBackend(backend)
