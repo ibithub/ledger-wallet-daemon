@@ -112,6 +112,7 @@ jobs:
             CORE_PG_DB_NAME_PREFIX: wdtest_
             CORE_PG_CONNECTION_POOL_SIZE_PER_WALLET_POOL: 1
             RABBITMQ_URI: "amqp://guest:guest@0.0.0.0:5672"
+            LD_LIBRARY_PATH: "/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/amd64/:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/amd64/default:${LD_LIBRARY_PATH}"
             SBT_OPTS: -Xmx1g -XX:MaxMetaspaceSize=512M
       - codecov/upload:
           file: target/scala-2.12/coverage-report/cobertura.xml
