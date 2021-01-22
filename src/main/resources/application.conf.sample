@@ -486,8 +486,8 @@ synchronization = {
   sync_interval_in_seconds = ${?SYNC_INTERVAL_IN_SECONDS}
 
   # max number of on going synchronizations
-  sync_ongoing_max = 4
-  sync_ongoing_max = ${?SYNC_ON_GOING_MAX}
+  max_sync_ongoing = 4
+  max_sync_ongoing = ${?SYNC_ON_GOING_MAX}
 }
 
 account-synchronizer-mailbox {

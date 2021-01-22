@@ -89,8 +89,8 @@ object DaemonConfiguration extends Logging {
     else {
       DEFAULT_RESYNC_CHECK_INTERVAL
     }
-    val maxOnGoing: Int = if (config.hasPath("synchronization.sync_ongoing_max")) {
-      config.getInt("synchronization.sync_ongoing_max")
+    val maxOnGoing: Int = if (config.hasPath("synchronization.max_sync_ongoing")) {
+      config.getInt("synchronization.max_sync_ongoing")
     }
     else {
       DEFAULT_SYNC_ON_GOING
