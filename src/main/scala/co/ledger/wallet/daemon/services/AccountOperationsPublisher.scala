@@ -75,6 +75,8 @@ object AccountOperationsPublisher {
 
   case class UpdatedOperationsEvent(uids: Array[OperationId])
 
+  case class UpdatedERC20OperationsEvent(operations: Array[(Erc20AccountUid, OperationId)])
+
   case class NewERC20OperationEvent(accUid: Erc20AccountUid, uid: OperationId)
 
   case class DeletedOperationEvent(uid: OperationId)
@@ -101,6 +103,20 @@ class AccountOperationReceiver(eventTarget: ActorRef) extends EventReceiver {
       val size = rawUids.size()
       val uids = (0L to size).map(rawUids.getString).map(OperationId).toArray
       eventTarget ! UpdatedOperationsEvent(uids)
+
+    case EventCode.UPDATE_ERC20_OPERATIONS =>
+      val rawUids = event.getPayload.getArray(Account.EV_NEW_OP_UID)
+
+      val size = rawUids.size()
+      val accUids = (0L to size).map(rawUids.getString).map(Erc20AccountUid).toArray
+      val uids = (0L to size).map(rawUids.getString).map(OperationId).toArray
+      val defaultAccountUid = Erc20AccountUid("MissingAccountId")
+      val defaultOperationId = OperationId("MissingOpID")
+      val operations = accUids.zipAll(uids, defaultAccountUid, defaultOperationId)
+      if (!operations.forall { case (accId, opId) => accId != defaultAccountUid && opId != defaultOperationId }) {
+        throw new Exception("")
+      }
+      eventTarget ! UpdatedERC20OperationsEvent(operations)
 
     case EventCode.DELETED_OPERATION =>
       val uid = event.getPayload.getString(Account.EV_DELETED_OP_UID)
