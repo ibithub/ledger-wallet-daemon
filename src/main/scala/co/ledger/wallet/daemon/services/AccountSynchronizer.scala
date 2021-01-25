@@ -3,7 +3,7 @@ package co.ledger.wallet.daemon.services
 import java.util.Date
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill}
 import akka.dispatch.{PriorityGenerator, UnboundedStablePriorityMailbox}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
@@ -24,7 +24,7 @@ import co.ledger.wallet.daemon.services.AccountSynchronizerWatchdog._
 import co.ledger.wallet.daemon.utils.AkkaUtils
 import com.twitter.util.{Duration, Timer}
 import com.typesafe.config.Config
-import javax.inject.{Inject, Singleton}
+import javax.inject.{Inject, Named, Singleton}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -40,7 +40,11 @@ import scala.util.control.NonFatal
   * @param scheduler used to schedule all the operations in ASM
   */
 @Singleton
-class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, actorSystem: ActorSystem, scheduler: Timer, publisherFactory: PublisherModule.OperationsPublisherFactory)
+class AccountSynchronizerManager @Inject()(
+                                            daemonCache: DaemonCache,
+                                            @Named("AccountSynchronizerWatchdog") synchronizerWatchdog: ActorRef,
+                                            scheduler: Timer
+                                          )
   extends DaemonService {
 
   import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
@@ -50,11 +54,6 @@ class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, actorSystem
   // We periodically try to register account just in case there is new account created
   lazy private val periodicRegisterAccount =
   scheduler.schedule(Duration.fromSeconds(DaemonConfiguration.Synchronization.syncAccountRegisterInterval))(registerAccounts)
-
-  lazy private val synchronizerWatchdog: ActorRef = actorSystem.actorOf(
-    Props(new AccountSynchronizerWatchdog(daemonCache, scheduler, publisherFactory))
-      .withDispatcher(SynchronizationDispatcher.configurationKey(SynchronizationDispatcher.Synchronizer))
-  )
 
   // should be called after the instantiation of this class
   def start(): Future[Unit] = {
@@ -162,7 +161,11 @@ class AccountSynchronizerManager @Inject()(daemonCache: DaemonCache, actorSystem
   }
 }
 
-class AccountSynchronizerWatchdog(cache: DaemonCache, scheduler: Timer, publisherFactory: PublisherModule.OperationsPublisherFactory) extends Actor with ActorLogging {
+class AccountSynchronizerWatchdog(
+                                   cache: DaemonCache,
+                                   scheduler: Timer,
+                                   publisherFactory: PublisherModule.OperationsPublisherFactory
+                                 ) extends Actor with ActorLogging {
   implicit val ec: ExecutionContext = context.dispatcher
 
   case class AccountData(account: Account, wallet: Wallet, syncStatus: SyncStatus, publisher: ActorRef)
@@ -175,10 +178,17 @@ class AccountSynchronizerWatchdog(cache: DaemonCache, scheduler: Timer, publishe
 
   override def preStart(): Unit = {
     super.preStart()
-    synchronizer = context.actorOf(Props(new AccountSynchronizer(self)).withMailbox("account-synchronizer-mailbox"), "synchronizer")
   }
 
-  override val receive: Receive = {
+  override val receive: Receive = idle()
+
+  private def idle(): Receive = {
+    case RegisterSynchronizer(synchronizer) => context become watching()
+      this.synchronizer = synchronizer
+    case other => log.error(s"Watchdog received ${other} message before having a registered AccountSynchronizer. This message will be ignored.")
+  }
+
+  private def watching(): Receive = {
     // Manager messages
     case GetStatus(account) =>
       getStatus(account).pipeTo(sender())
@@ -201,6 +211,8 @@ class AccountSynchronizerWatchdog(cache: DaemonCache, scheduler: Timer, publishe
       handleSyncSuccess(accountInfo)
     case SyncFailure(accountInfo, reason) =>
       handleSyncFailure(accountInfo, reason)
+    case RegisterSynchronizer(_) =>
+      log.warning("Only one synchronizer can be registered. This message will be ignored.")
   }
 
   private def resyncAccount(accountInfo: AccountInfo): Unit = {
@@ -250,7 +262,7 @@ class AccountSynchronizerWatchdog(cache: DaemonCache, scheduler: Timer, publishe
             SyncOnGoingException()
           )
       }
-      case None => log.error(s"Trying to force synchronization on un-registered account ${accountInfo}")
+      case None => log.error(s"Trying to force synchronization on un-registered account $accountInfo")
         Future.failed[SyncStatus](
           AccountNotFoundException(accountInfo.accountIndex)
         )
@@ -262,17 +274,17 @@ class AccountSynchronizerWatchdog(cache: DaemonCache, scheduler: Timer, publishe
       case Synced(atHeight) => Syncing(atHeight, atHeight)
       case FailedToSync(_) => Syncing(0, 0)
       case other =>
-        log.warning(s"Unexpected previous account synchronization state ${other} before starting new synchronization. Keep status as is, although synchronization is running.")
+        log.warning(s"Unexpected previous account synchronization state $other before starting new synchronization. Keep status as is, although synchronization is running.")
         other
     }
-    log.debug(s"Updated new status of account ${accountInfo}: ${syncing}")
+    log.debug(s"Updated new status of account $accountInfo: $syncing")
     accounts += ((accountInfo, accounts(accountInfo).copy(syncStatus = syncing)))
   }
 
   private def handleSyncFailure(accountInfo: AccountInfo, reason: String) = {
     val accountData = accounts(accountInfo)
 
-    log.warning(s"Failed to sync account ${accountInfo}: ${reason}. Re-scheduled.")
+    log.warning(s"Failed to sync account $accountInfo: $reason. Re-scheduled.")
     afterSyncEpilogue(accountInfo, accountData, FailedToSync(reason))
   }
 
@@ -283,7 +295,7 @@ class AccountSynchronizerWatchdog(cache: DaemonCache, scheduler: Timer, publishe
       case Success(blockHeight) =>
         afterSyncEpilogue(accountInfo, accountData, Synced(blockHeight.value))
       case scala.util.Failure(e) =>
-        log.warning(s"Could not update status of account ${accountInfo} although the synchronization ended well. Still marked as fail.")
+        log.warning(s"Could not update status of account $accountInfo although the synchronization ended well. Still marked as fail.")
         afterSyncEpilogue(accountInfo, accountData, FailedToSync(e.getMessage))
     }
   }
@@ -294,7 +306,7 @@ class AccountSynchronizerWatchdog(cache: DaemonCache, scheduler: Timer, publishe
       p.success(newSyncStatus)
     })
     accountData.publisher ! newSyncStatus
-    log.debug(s"New status for account ${accountInfo}: ${accounts(accountInfo).syncStatus}")
+    log.debug(s"New status for account $accountInfo: ${accounts(accountInfo).syncStatus}")
 
     scheduler.doLater(Duration.fromSeconds(DaemonConfiguration.Synchronization.syncInterval)) {
       synchronizer ! StartSynchronization(accountData.account, accountInfo)
@@ -373,6 +385,8 @@ object AccountSynchronizerWatchdog {
 
   case class Resync(accountInfo: AccountInfo)
 
+  case class RegisterSynchronizer(synchronizer: ActorRef)
+
   private case class BlockHeight(value: Long) extends AnyVal
 
 }
@@ -385,6 +399,7 @@ class AccountSynchronizer(watchdog: ActorRef) extends Actor with ActorLogging {
 
   override def preStart(): Unit = {
     super.preStart()
+    watchdog ! RegisterSynchronizer(self)
   }
 
   override val receive: Receive = {
@@ -460,6 +475,7 @@ object AccountSynchronizer {
 
   sealed trait Synchronization {
     def account: Account
+
     def accountInfo: AccountInfo
   }
 
