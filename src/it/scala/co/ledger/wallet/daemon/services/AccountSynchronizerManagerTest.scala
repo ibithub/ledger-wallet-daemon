@@ -1,6 +1,7 @@
 package co.ledger.wallet.daemon.services
 
-import akka.actor.ActorRef
+import akka.actor.ActorSystem
+import akka.testkit.{TestKitBase, TestProbe}
 import com.twitter.util
 import com.twitter.util.{Time, Timer, TimerTask}
 import org.scalatest.concurrent.ScalaFutures
@@ -12,11 +13,13 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 
-class AccountSynchronizerManagerTest extends FlatSpec with MockitoSugar with DefaultDaemonCacheDatabaseInitializer with Matchers with ScalaFutures {
+class AccountSynchronizerManagerTest extends FlatSpec with TestKitBase with MockitoSugar with DefaultDaemonCacheDatabaseInitializer with Matchers with ScalaFutures {
+  implicit lazy val system: ActorSystem = ActorSystem()
 
   implicit val timeout: FiniteDuration = 1 minute
 
   "AccountSynchronizerManager.start" should "register accounts and schedule a periodic registration" in {
+    val watchdogProbe = TestProbe()
     var scheduled = false
 
     val scheduler: Timer = new Timer {
@@ -30,7 +33,7 @@ class AccountSynchronizerManagerTest extends FlatSpec with MockitoSugar with Def
       }
     }
 
-    val manager = new AccountSynchronizerManager(defaultDaemonCache, mock[ActorRef], scheduler)
+    val manager = new AccountSynchronizerManager(defaultDaemonCache, watchdogProbe.ref, scheduler)
 
     Await.result(manager.start(), 1.minute)
 

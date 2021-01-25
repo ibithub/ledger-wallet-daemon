@@ -96,7 +96,6 @@ lazy val versions = new {
   val junitI     = "0.11"
   val h2         = "1.4.192"
   val logback    = "1.1.7"
-  val mockito    = "1.9.5"
   val postgres   = "42.2.12"
   val scalacheck = "1.13.4"
   val scalatest  = "3.0.0"
@@ -164,7 +163,8 @@ lazy val root = (project in file("."))
       "com.twitter"                  %% "inject-server"          % versions.finatra    % "it" classifier "tests",
       "com.twitter"                  %% "inject-app"             % versions.finatra    % "it" classifier "tests",
       "com.twitter"                  %% "inject-core"            % versions.finatra    % "it" classifier "tests",
-      "com.twitter"                  %% "inject-modules"         % versions.finatra    % "it" classifier "tests"
+      "com.twitter"                  %% "inject-modules"         % versions.finatra    % "it" classifier "tests",
+      "com.typesafe.akka"            %% "akka-testkit"           % versions.akka       % "it"
     )
   )
 
