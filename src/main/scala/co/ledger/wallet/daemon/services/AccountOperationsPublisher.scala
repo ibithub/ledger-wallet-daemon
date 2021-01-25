@@ -7,6 +7,7 @@ import cats.data.OptionT
 import cats.implicits._
 import co.ledger.core._
 import co.ledger.wallet.daemon.database.DaemonCache
+import co.ledger.wallet.daemon.exceptions.InvalidErc20OperationsListException
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Operations.OperationView
 import co.ledger.wallet.daemon.models.{Pool, PoolInfo}
@@ -114,7 +115,7 @@ class AccountOperationReceiver(eventTarget: ActorRef) extends EventReceiver {
       val defaultOperationId = OperationId("MissingOpID")
       val operations = accUids.zipAll(uids, defaultAccountUid, defaultOperationId)
       if (!operations.forall { case (accId, opId) => accId != defaultAccountUid && opId != defaultOperationId }) {
-        throw new Exception("")
+        throw InvalidErc20OperationsListException()
       }
       eventTarget ! UpdatedERC20OperationsEvent(operations)
 
