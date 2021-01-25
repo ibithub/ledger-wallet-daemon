@@ -20,8 +20,8 @@ object AccountSyncModule extends AbstractModule {
   @Provides
   @Singleton
   @Named("AccountSynchronizerWatchdog")
-  def providesAccountSynchronizerWatchdog(system: ActorSystem, cache: DaemonCache, timer: Timer, publisherFactory: OperationsPublisherFactory): ActorRef = {
-    system.actorOf(Props(classOf[AccountSynchronizerWatchdog], cache, timer, publisherFactory)
+  def providesAccountSynchronizerWatchdog(system: ActorSystem, cache: DaemonCache, timer: Timer, @Named("AccountSynchronizer") synchronizer: ActorRef, publisherFactory: OperationsPublisherFactory): ActorRef = {
+    system.actorOf(Props(classOf[AccountSynchronizerWatchdog], cache, timer, synchronizer, publisherFactory)
       .withDispatcher(SynchronizationDispatcher.configurationKey(SynchronizationDispatcher.Synchronizer)),
         "akka-account-synchronizer-watchdog"
       )
@@ -29,8 +29,9 @@ object AccountSyncModule extends AbstractModule {
 
   @Provides
   @Singleton
-  def providesAccountSynchronizer(system: ActorSystem, @Named("AccountSynchronizerWatchdog") watchdog: ActorRef): ActorRef = {
-    system.actorOf(Props(new AccountSynchronizer(watchdog)).withMailbox("account-synchronizer-mailbox"), "akka-account-synchronizer")
+  @Named("AccountSynchronizer")
+  def providesAccountSynchronizer(system: ActorSystem): ActorRef = {
+    system.actorOf(Props(new AccountSynchronizer()).withMailbox("account-synchronizer-mailbox"), "akka-account-synchronizer")
   }
 
   override def configure(): Unit = ()

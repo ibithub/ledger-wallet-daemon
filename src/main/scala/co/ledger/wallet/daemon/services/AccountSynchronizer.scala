@@ -164,6 +164,7 @@ class AccountSynchronizerManager @Inject()(
 class AccountSynchronizerWatchdog(
                                    cache: DaemonCache,
                                    scheduler: Timer,
+                                   synchronizer: ActorRef,
                                    publisherFactory: PublisherModule.OperationsPublisherFactory
                                  ) extends Actor with ActorLogging {
   implicit val ec: ExecutionContext = context.dispatcher
@@ -174,21 +175,12 @@ class AccountSynchronizerWatchdog(
   val ongoingForceSyncs: mutable.Map[AccountInfo, Promise[SyncStatus]] = new mutable.HashMap()
   val accountsPublisherIndex: mutable.Map[ActorRef, AccountInfo] = new mutable.HashMap()
 
-  var synchronizer: ActorRef = ActorRef.noSender
-
   override def preStart(): Unit = {
     super.preStart()
+    synchronizer ! RegisterWatchdog(self)
   }
 
-  override val receive: Receive = idle()
-
-  private def idle(): Receive = {
-    case RegisterSynchronizer(synchronizer) => context become watching()
-      this.synchronizer = synchronizer
-    case other => log.error(s"Watchdog received ${other} message before having a registered AccountSynchronizer. This message will be ignored.")
-  }
-
-  private def watching(): Receive = {
+  override val receive: Receive = {
     // Manager messages
     case GetStatus(account) =>
       getStatus(account).pipeTo(sender())
@@ -211,8 +203,6 @@ class AccountSynchronizerWatchdog(
       handleSyncSuccess(accountInfo)
     case SyncFailure(accountInfo, reason) =>
       handleSyncFailure(accountInfo, reason)
-    case RegisterSynchronizer(_) =>
-      log.warning("Only one synchronizer can be registered. This message will be ignored.")
   }
 
   private def resyncAccount(accountInfo: AccountInfo): Unit = {
@@ -385,25 +375,28 @@ object AccountSynchronizerWatchdog {
 
   case class Resync(accountInfo: AccountInfo)
 
-  case class RegisterSynchronizer(synchronizer: ActorRef)
-
   private case class BlockHeight(value: Long) extends AnyVal
 
 }
 
-class AccountSynchronizer(watchdog: ActorRef) extends Actor with ActorLogging {
+class AccountSynchronizer() extends Actor with ActorLogging {
 
   implicit val ec: ExecutionContext = context.dispatcher
   var onGoingSyncs: mutable.HashMap[AccountInfo, Future[SyncResult]] = new mutable.HashMap()
   val queue: mutable.Queue[(Account, AccountInfo)] = new mutable.Queue[(Account, AccountInfo)]
 
+  var watchdog: ActorRef = ActorRef.noSender
+
   override def preStart(): Unit = {
     super.preStart()
-    watchdog ! RegisterSynchronizer(self)
+    log.info("Registered Account Synchronizer")
   }
 
   override val receive: Receive = {
     // Watchdog messages
+    case RegisterWatchdog(watchdog) =>
+      log.info("Registered Watchdog in AccountSynchronizer")
+      this.watchdog = watchdog
     case ForceStopSynchronization(accountInfo) =>
       forceStopSynchronization(accountInfo)
     case ForceStartSynchronization(account, accountInfo) =>
@@ -472,6 +465,8 @@ class AccountSynchronizerMailbox(val settings: ActorSystem.Settings, val config:
   })
 
 object AccountSynchronizer {
+
+  final case class RegisterWatchdog(watchdog: ActorRef)
 
   sealed trait Synchronization {
     def account: Account
