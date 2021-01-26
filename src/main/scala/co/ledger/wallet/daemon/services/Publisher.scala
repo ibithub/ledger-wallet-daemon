@@ -1,6 +1,5 @@
 package co.ledger.wallet.daemon.services
 
-import co.ledger.core
 import co.ledger.core._
 import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.models.Operations.OperationView
