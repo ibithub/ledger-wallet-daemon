@@ -81,9 +81,9 @@ class RabbitMQPublisher(poolPublisher: ActorSelection) extends Logging with Publ
   }
 
   private def accountPayload(pool: Pool, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = {
-    account.accountView(pool, wallet, wallet.getCurrency.currencyView, syncStatus).map {
-      mapper.writeValueAsBytes(_)
-    }
+    account.accountView(pool, wallet, wallet.getCurrency.currencyView, syncStatus)
+      .map(AccountRabbitMQView.fromAccountView)
+      .map(mapper.writeValueAsBytes)
   }
 
   private def erc20AccountPayload(erc20Account: ERC20LikeAccount, account: Account, wallet: Wallet, syncStatus: SyncStatus): Future[Array[Byte]] = {

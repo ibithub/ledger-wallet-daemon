@@ -1,9 +1,10 @@
 package co.ledger.wallet.daemon.services
 
+import co.ledger.core
 import co.ledger.core._
 import co.ledger.wallet.daemon.context.ApplicationContext.IOPool
 import co.ledger.wallet.daemon.models.Operations.OperationView
-import co.ledger.wallet.daemon.models.Pool
+import co.ledger.wallet.daemon.models.{AccountView, CurrencyView, Pool}
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.twitter.inject.Logging
 
@@ -65,6 +66,25 @@ case class Resyncing(@JsonProperty("sync_status_target") targetOpCount: Long,
   def value: String = "resyncing"
 }
 
+case class AccountRabbitMQView(
+                                @JsonProperty("wallet_name") walletName: String,
+                                @JsonProperty("index") index: Int,
+                                @JsonProperty("balance") balance: scala.BigInt,
+                                @JsonProperty("currency") currency: CurrencyView,
+                                @JsonProperty("status") status: SyncStatus
+                              )
+
+case object AccountRabbitMQView {
+  def fromAccountView(accountView: AccountView): AccountRabbitMQView = {
+    AccountRabbitMQView(
+      walletName = accountView.walletName,
+      index = accountView.index,
+      balance = accountView.balance,
+      currency = accountView.currency,
+      status = accountView.status
+    )
+  }
+}
 
 // Dummy publisher that do nothing but log
 class DummyPublisher extends Publisher with Logging {
