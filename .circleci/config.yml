@@ -77,6 +77,7 @@ jobs:
       - image: rabbitmq:3
         environment:
           RABBITMQ_VM_MEMORY_HIGH_WATERMARK: 512MiB
+      - image: redis
     resource_class: large
     steps:
       - checkout
@@ -259,7 +260,10 @@ workflows:
             CORE_PG_HOST=postgres
             CORE_PG_USER=postgres
             CORE_PG_PWD=ledger_secret
+            WALLET_DAEMON_DATABASE_ENGINE=sqlite3
+            CORE_DATABASE_ENGINE=sqlite3
           filters: *filter_all_tags
+
       - docker/publish_image:
           context: githubpkg
           requires:
