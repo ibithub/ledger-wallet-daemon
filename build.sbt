@@ -13,7 +13,6 @@ lazy val buildInfoKeysInfo = Seq[BuildInfoKey](
   version,
   scalaVersion)
 
-
 addCompilerPlugin("org.psywerx.hairyfotr" %% "linter" % "0.1.17")
 
 mainClass in Compile := Some("co.ledger.wallet.daemon.Server")
@@ -106,12 +105,26 @@ lazy val versions = new {
   val web3j      = "4.5.1"
   val guava      = "28.1-jre"
   val scalaredis = "3.30"
+  val ddogAgent  = "0.72.0"
 }
-// scalastyle:on
 
+val datadogAgentName = "dd-java-agent"
+
+// scalastyle:on
 lazy val root = (project in file("."))
   .enablePlugins(BuildInfoPlugin).settings(buildInfoKeys := buildInfoKeysInfo, buildInfoKeys ++= Seq[BuildInfoKey]("commitHash" -> git.gitHeadCommit.value))
   .configs(IntegrationTest)
+  .enablePlugins(JavaAgent, JavaAppPackaging)
+  .settings(
+    javaAgents += JavaAgent("com.datadoghq" % datadogAgentName % versions.ddogAgent),
+    bashScriptExtraDefines :=
+      bashScriptExtraDefines.value.filterNot(l => l.contains("javaagent") && l.contains(datadogAgentName))
+      :+ s"""
+        |if [ -n "$${DD_AGENT_HOST+x}" ];then
+        |  addJava "-javaagent:$${app_home}/../$datadogAgentName/$datadogAgentName-${versions.ddogAgent}.jar";
+        |fi
+        |""".stripMargin,
+  )
   .settings(
     Defaults.itSettings,
     libraryDependencies ++= Seq(
