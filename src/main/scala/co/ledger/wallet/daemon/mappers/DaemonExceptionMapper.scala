@@ -75,6 +75,11 @@ class DaemonExceptionMapper @Inject()(response: ResponseBuilder)
           daemonExceptionInfo(e) + ("contract" -> e.tokenAddress),
           response
         )
+      case e: ERC20AccountNotFound =>
+        ResponseSerializer.serializeBadRequest(request,
+          daemonExceptionInfo(e) + ("contract" -> e.contract),
+          response
+        )
       case e: AmountNotEnoughToActivateAccount =>
         ResponseSerializer.serializeBadRequest(request,
           daemonExceptionInfo(e) + ("currency_name" -> e.currency.getName),
