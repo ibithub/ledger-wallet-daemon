@@ -355,7 +355,7 @@ object Account extends Logging {
             .sendToAddress(c.convertAmount(0), contract)
             .setInputData(inputData)
         }
-      case None => Future.failed(ERC20BalanceNotEnough(contract, 0, ti.amount))
+      case None => Future.failed(ERC20AccountNotFound(contract))
     }
   }
 
