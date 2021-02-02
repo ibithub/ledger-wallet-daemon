@@ -8,10 +8,13 @@ import co.ledger.wallet.daemon.clients.{ApiClient, ClientFactory}
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.libledger_core.metrics.LibCoreMetrics
 import co.ledger.wallet.daemon.libledger_core.metrics.LibCoreMetrics.{AllocationMetric, DurationMetric}
+import co.ledger.wallet.daemon.models.AccountInfo
+import co.ledger.wallet.daemon.services.{AccountsService, SyncStatus, Syncing}
 import com.twitter.finagle.http.Request
 import com.twitter.finatra.http.Controller
+import javax.inject.Inject
 
-class StatusController extends Controller {
+class StatusController @Inject()(accountsService: AccountsService) extends Controller {
 
   import StatusController._
 
@@ -34,11 +37,16 @@ class StatusController extends Controller {
 
   get("/_metrics") { request: Request =>
     info(s"GET _metrics $request")
-    response.ok(MetricsResponse(
-      ClientFactory.httpCoreClient.poolCacheSize,
-      ApiClient.fallbackServices.poolCacheSize,
-      ApiClient.feeServices.poolCacheSize)
-    )
+    import MDCPropagatingExecutionContext.Implicits.global
+    accountsService.ongoingSyncs()
+      .map(ongoingSyncs =>
+        MetricsResponse(
+          ClientFactory.httpCoreClient.poolCacheSize,
+          ApiClient.fallbackServices.poolCacheSize,
+          ApiClient.feeServices.poolCacheSize,
+          OnGoingSyncs(ongoingSyncs.count(_._2.isInstanceOf[Syncing]), ongoingSyncs))
+      )
+
   }
 
   get("/_metrics/libcore") { request: Request =>
@@ -57,7 +65,9 @@ object StatusController {
 
   case class VersionResponse(name: String, version: String, scalaVersion: String, commitHash: String, libcoreVersion: String, explorers: DaemonConfiguration.ExplorerConfig)
 
-  case class MetricsResponse(coreHttpCachedPool: Long, feesHttpCachedPool: Long, fallbackHttpCachedPool: Long)
+  case class MetricsResponse(coreHttpCachedPool: Long, feesHttpCachedPool: Long, fallbackHttpCachedPool: Long, ongoingSyncs: OnGoingSyncs)
 
   case class LibCoreMetricsResponse(allocations: List[AllocationMetric], durations: List[DurationMetric])
+
+  case class OnGoingSyncs(total: Integer, detail: List[(AccountInfo, SyncStatus)])
 }

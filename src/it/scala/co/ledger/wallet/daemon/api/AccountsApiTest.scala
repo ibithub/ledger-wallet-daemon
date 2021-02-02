@@ -95,7 +95,7 @@ class AccountsApiTest extends APIFeatureTest {
     assert(utxoList.utxos.exists(_.address == "1DQG8REnZ8o1xYxdqJzKaAiwXdZR3cBtL8"))
     assert(utxoList.utxos.exists(_.address == "16FDnMhQGuHkTjg99kspzVHKKaE2bMqFPF"))
     assert(utxoList.utxos.exists(_.address == "18qYT5biQrxsQZFZLfbFgRMM3tV3Hvh3w8"))
-    assert(16 === utxoList.count)
+    assert(20 === utxoList.count)
   }
 
   test("AccountsApi#Get account(s) from non exist pool return bad request") {
