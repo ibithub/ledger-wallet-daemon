@@ -114,6 +114,9 @@ workflows:
             - run:
                 name: Set version environment variable
                 command: echo "export COMMIT_HASH=$(git rev-parse HEAD)" >> $BASH_ENV
+            - docker/set_docker_tag_env_var
+          docker_build_args:
+            --build-arg docker_tag=$DOCKER_TAG
           filters: *filter_all_tags
       - docker/test_image:
           requires:
