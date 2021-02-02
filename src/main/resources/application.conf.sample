@@ -1,5 +1,5 @@
 # Database engine to use for Wallet-Daemon (users and pools)
-database_engine = "sqlite3"
+database_engine = "postgres"
 database_engine = ${?WALLET_DAEMON_DATABASE_ENGINE}
 
 
