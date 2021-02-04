@@ -187,6 +187,11 @@ class AccountsService @Inject()(daemonCache: DaemonCache) extends DaemonService 
       } yield views
     }
 
+  def addTokenAccounts(accountInfo: AccountInfo, erc20Contracts: List[String]): Future[Unit] =
+    daemonCache.withAccount(accountInfo) { account =>
+      account.addErc20Accounts(erc20Contracts).liftTo[Future]
+    }
+
   def getTokenAccount(tokenAccountInfo: TokenAccountInfo): Future[ERC20AccountView] =
     daemonCache.withAccount(tokenAccountInfo.accountInfo) { account =>
       for {

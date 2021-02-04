@@ -178,6 +178,11 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
         accountsService.getTokenAccounts(request.accountInfo)
       }
 
+      // Create tokens account
+      post("/tokens") { request: CreateTokenAccountRequest =>
+        accountsService.addTokenAccounts(request.accountInfo, request.contracts)
+      }
+
       // operations of all tokens on this account
       filter[DeprecatedRouteFilter].get("/tokens/operations") { request: AccountRequest =>
         accountsService.getERC20Operations(request.accountInfo)
@@ -344,6 +349,13 @@ object AccountsController {
                                   request: Request
                                 )
     extends BaseSingleAccountRequest with WithTokenAccountInfo
+
+  case class CreateTokenAccountRequest(
+                             @RouteParam override val pool_name: String,
+                             @RouteParam override val wallet_name: String,
+                             @RouteParam override val account_index: Int,
+                             contracts: List[String],
+                             request: Request) extends BaseSingleAccountRequest
 
   case class UtxoAccountResponse(utxos: List[UTXOView], count: Int)
 
