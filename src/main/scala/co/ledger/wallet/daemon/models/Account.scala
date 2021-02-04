@@ -1,7 +1,6 @@
 package co.ledger.wallet.daemon.models
 
 import java.util.{Calendar, Date}
-
 import cats.instances.future._
 import cats.instances.list._
 import cats.syntax.either._
@@ -25,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.google.common.primitives.UnsignedInteger
 import com.twitter.inject.Logging
 
+import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -59,6 +59,9 @@ object Account extends Logging {
 
     def erc20Account(tokenAddress: String): Either[Exception, core.ERC20LikeAccount] =
       asERC20Account(tokenAddress, a)
+
+    def addErc20Accounts(erc20Contracts: List[String]): Either[Exception, Unit] =
+      Account.addErc20Accounts(a, erc20Contracts)
 
     def getUtxo(offset: Int, batch: Int)(implicit ec: ExecutionContext): Future[List[co.ledger.core.BitcoinLikeOutput]] = {
       Account.getUtxo(offset, batch, a)
@@ -152,6 +155,9 @@ object Account extends Logging {
   def erc20Accounts(a: core.Account): Either[Exception, List[core.ERC20LikeAccount]] =
     asETHAccount(a).map(_.getERC20Accounts.asScala.toList)
 
+
+  def addErc20Accounts(a: core.Account, erc20Contracts: List[String]): Either[Exception, Unit] =
+    asETHAccount(a).map(_.addERC20Accounts(new util.ArrayList[String](erc20Contracts.asJava)))
 
   def erc20Balance(contract: String, a: core.Account)(implicit ec: ExecutionContext): Future[scala.BigInt] =
     for {
