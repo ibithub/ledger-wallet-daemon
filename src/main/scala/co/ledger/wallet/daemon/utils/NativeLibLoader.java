@@ -55,7 +55,7 @@ public class NativeLibLoader {
 
     // Load native libs from canonical locations
     public static void loadLibs() throws URISyntaxException, IOException {
-        System.out.println("Loading");
+        log.log(Level.FINE, "Starting core libs loading...");
         // Try to load from Jar
         loadLibsFromJarPath(djinniNativeLibsJarPath);
 
@@ -109,7 +109,7 @@ public class NativeLibLoader {
         DirectoryStream<Path> directoryStream = Files.newDirectoryStream(myPath);
         try {
             for (Path p : directoryStream) {
-                System.out.println(p.toString());
+                log.log(Level.FINE, String.format("Loading %s", p.toString()));
                 loadLibFromJarPath(p);
             }
         } finally {
