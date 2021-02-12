@@ -66,6 +66,10 @@ postgres = {
         # the PG instance should be able to handle up to 100 connexions at a time
         pool_size = 10
         pool_size = ${?CORE_PG_CONNECTION_POOL_SIZE_PER_WALLET_POOL}
+
+        # readonly_pool_size is the number of connections held by a readonly pool instance.
+        readonly_pool_size = 10
+        readonly_pool_size = ${?CORE_PG_READONLY_CONNECTION_POOL_SIZE_PER_WALLET_POOL}
     }
     wallet_daemon = {
         # Wallet Daemon database name

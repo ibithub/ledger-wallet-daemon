@@ -299,8 +299,9 @@ object Pool extends Logging {
         dbName match {
           case Success(cppUrl) =>
             val cnx = config.getInt("postgres.core.pool_size")
+            val readonlyCnx = config.getInt("postgres.core.readonly_pool_size")
             poolConfig.putString("DATABASE_NAME", cppUrl)
-            val backend = core.DatabaseBackend.getPostgreSQLBackend(cnx)
+            val backend = core.DatabaseBackend.getPostgreSQLBackend(cnx, readonlyCnx)
             builder.setDatabaseBackend(backend)
           case Failure(exception) =>
             throw CoreDatabaseException("Failed to configure wallet daemon's core database", exception)

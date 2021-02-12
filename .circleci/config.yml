@@ -111,6 +111,7 @@ jobs:
             CORE_PG_PWD: ledger_secret
             CORE_PG_DB_NAME_PREFIX: wdtest_
             CORE_PG_CONNECTION_POOL_SIZE_PER_WALLET_POOL: 1
+            CORE_PG_READONLY_CONNECTION_POOL_SIZE_PER_WALLET_POOL: 1
             RABBITMQ_URI: "amqp://guest:guest@0.0.0.0:5672"
             SBT_OPTS: -Xmx1g -XX:MaxMetaspaceSize=512M
       - codecov/upload:
