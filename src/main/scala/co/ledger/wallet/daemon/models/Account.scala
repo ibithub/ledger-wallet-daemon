@@ -322,7 +322,7 @@ object Account extends Logging {
       builder = a.asBitcoinLikeAccount().buildTransaction(partial)
         .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
         .setFeesPerByte(c.convertAmount(feesPerByte))
-        .pickInputs(ti.pickingStrategy, UnsignedInteger.MAX_VALUE.intValue())
+        .pickInputs(ti.pickingStrategy, UnsignedInteger.MAX_VALUE.intValue(), null)
       _ = for ((address, index) <- ti.excludeUtxos) builder.excludeUtxo(address, index)
       tx <- builder.build()
       v <- Bitcoin.newUnsignedTransactionView(tx, feesPerByte, partial)
