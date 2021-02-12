@@ -114,7 +114,7 @@ sealed trait CurrencyRabbitMQ
 
 final case class CurrencyRabbitMQView(
                                        @JsonProperty("name") name: String,
-                                       @JsonProperty("family") family: core.WalletType,
+                                       @JsonProperty("family") family: core.WalletType
                                      ) extends CurrencyRabbitMQ
 
 case object CurrencyRabbitMQView {
@@ -124,7 +124,7 @@ case object CurrencyRabbitMQView {
 }
 
 final case class ERC20CurrencyRabbitMQView(
-                                            @JsonProperty("contract_address") contractAddress: String,
+                                            @JsonProperty("contract_address") contractAddress: String
                                           ) extends CurrencyRabbitMQ
 
 case object ERC20CurrencyRabbitMQView {
