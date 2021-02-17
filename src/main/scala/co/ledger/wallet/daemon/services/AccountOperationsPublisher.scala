@@ -44,7 +44,7 @@ class AccountOperationsPublisher(daemonCache: DaemonCache, account: Account, wal
   override def receive: Receive = LoggingReceive {
     case s: SyncStatus if account.isInstanceOfEthereumLikeAccount =>
       publisher.publishAccount(pool, account, wallet, s).flatMap(_ => {
-        publisher.publishERC20Accounts(account, wallet, poolName.name, s)
+        publisher.publishERC20Accounts(pool, account, wallet, s)
       })
     case s: SyncStatus =>
       publisher.publishAccount(pool, account, wallet, s)
