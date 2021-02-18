@@ -12,7 +12,7 @@ else
 fi
 
 if [ -n "${DD_AGENT_HOST+x}" ];then
-  DD_ARGS="-Ddd.agent.host=$DD_AGENT_HOST -Ddd.agent.port=$DD_TRACE_AGENT_PORT -Ddd.profiling.enabled=$DD_PROFILING_ENABLED -Ddd.logs.injection=true -Ddd.trace.sample.rate=1 -Ddd.service=wallet-daemon"
+  DD_ARGS="-Ddd.agent.host=$DD_AGENT_HOST -Ddd.agent.port=${DD_TRACE_AGENT_PORT:-8126} -Ddd.profiling.enabled=${DD_PROFILING_ENABLED:-true} -Ddd.logs.injection=true -Ddd.trace.sample.rate=1 -Ddd.service=wallet-daemon"
   echo "Starting Wallet Daemon with DATADOG APM support : $DD_ARGS"
   OPTS="${OPTS} $DD_ARGS"
 else
