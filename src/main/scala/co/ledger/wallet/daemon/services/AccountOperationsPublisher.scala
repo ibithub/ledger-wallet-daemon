@@ -50,9 +50,12 @@ class AccountOperationsPublisher(daemonCache: DaemonCache, account: Account, wal
       publisher.publishAccount(pool, account, wallet, s)
     case NewERC20OperationEvent(_, opId) =>
       fetchErc20OperationView(opId).fold(log.warning(s"operation not found: $opId"))(op => publisher.publishERC20Operation(op, account, wallet, poolName.name))
+    case UpdatedERC20OperationsEvent(ops) =>
+      fetchErc20OperationsViews(ops).foreach(_.foreach(publisher.publishERC20Operation(_, account, wallet, poolName.name)))
     case UpdatedOperationsEvent(opIds) =>
       fetchOperationsViews(opIds).foreach(_.foreach(publisher.publishOperation(_, account, wallet, poolName.name)))
-    case DeletedOperationEvent(opId) => publisher.publishDeletedOperation(opId.uid, account, wallet, poolName.name)
+    case DeletedOperationEvent(opId) =>
+      publisher.publishDeletedOperation(opId.uid, account, wallet, poolName.name)
   }
 
   private def listenOperationsEvents(account: Account): Unit = eventReceiver.listenEvents(account.getEventBus)
@@ -64,6 +67,9 @@ class AccountOperationsPublisher(daemonCache: DaemonCache, account: Account, wal
 
   private def fetchErc20OperationView(erc20op: OperationId): OptionT[ScalaFuture, OperationView] =
     OptionT(walletPoolDao.findERC20OperationByUid(account, wallet, erc20op.uid).asScala())
+
+  private def fetchErc20OperationsViews(erc20ops: List[(Erc20AccountUid, OperationId)]): ScalaFuture[Seq[OperationView]] =
+    walletPoolDao.findERC20OperationsByUids(account, wallet, erc20ops.map(_._2.uid), 0, Int.MaxValue).asScala()
 }
 
 object AccountOperationsPublisher {
