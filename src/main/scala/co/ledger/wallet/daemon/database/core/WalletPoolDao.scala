@@ -67,6 +67,12 @@ class WalletPoolDao(poolName: String)(implicit val ec: ExecutionContext) extends
   override def findERC20OperationsByUids(a: Account, w: Wallet, filteredUids: Seq[ERC20OperationUid], offset: Int, limit: Int): Future[Seq[OperationView]] =
     erc20daoForWalletType(w.getWalletType: WalletType).findERC20OperationsByUids(a, w, filteredUids, offset, limit)
 
+  /**
+    * List erc20 operations from an account starting at specified bock height
+    */
+  override def findERC20OperationsFromBlockHeight(a: Account, w: Wallet, blockHeight: Long, offset: Int, limit: Int): Future[Seq[OperationView]] =
+    erc20daoForWalletType(w.getWalletType: WalletType).findERC20OperationsFromBlockHeight(a, w, blockHeight, offset, limit)
+
 }
 
 object WalletPoolDao {

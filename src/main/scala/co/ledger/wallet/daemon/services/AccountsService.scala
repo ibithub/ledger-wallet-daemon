@@ -291,9 +291,11 @@ class AccountsService @Inject()(daemonCache: DaemonCache, synchronizerManager: A
             publisher.publishOperation(view, account, wallet, accountInfo.poolName)
           ))
         val pushErc20Future: Future[Unit] = if (account.isInstanceOfEthereumLikeAccount) {
-          account.erc20Operations(wallet).map(_.map(view =>
-            publisher.publishERC20Operation(view, account, wallet, accountInfo.poolName)
-          ))
+          daemonCache.withAccountAndWalletAndPool(accountInfo) { (account, wallet, pool) =>
+            account.erc20OperationsFromHeight(pool, wallet, account, 0, Int.MaxValue, fromHeight.getOrElse(0)).map(_.map(view =>
+              publisher.publishERC20Operation(view, account, wallet, accountInfo.poolName)
+            ))
+          }
         } else Future.unit
         pushOperationFuture.flatMap(_ => pushErc20Future)
     }

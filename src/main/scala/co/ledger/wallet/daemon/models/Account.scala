@@ -116,6 +116,9 @@ object Account extends Logging {
       Account.operationViews(offset, batch, fullOp, opQuery, w, a)
     }
 
+    def erc20OperationsFromHeight(pool: Pool, wallet: Wallet, account: Account, offset: Int, batch: Int, fromHeight: Long): Future[Seq[OperationView]] =
+      pool.walletPoolDao.findERC20OperationsFromBlockHeight(account, wallet, fromHeight, offset, batch).asScala()
+
     def freshAddresses(implicit ec: ExecutionContext): Future[Seq[core.Address]] =
       Account.freshAddresses(a)
 
