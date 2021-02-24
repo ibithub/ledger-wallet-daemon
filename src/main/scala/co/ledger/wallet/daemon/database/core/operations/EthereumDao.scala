@@ -14,7 +14,7 @@ import com.twitter.finagle.postgres.Row
 import com.twitter.inject.Logging
 import com.twitter.util.Future
 
-class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with Logging {
+class EthereumDao(protected val db: Database, protected val poolName: String) extends CoinDao with ERC20Dao with Logging {
   logger.info(s"EthereumDao created for ${db.client}")
 
   private val ethOperationQuery: (Int, String, Ordering.OperationOrder, Option[Seq[OperationUid]], Int, Int) => SQLQuery =
@@ -70,7 +70,7 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
     * List operations from an account filtered by Uids
     */
   def listOperationsByUids(a: Account, w: Wallet, filteredUids: Option[Seq[OperationUid]], offset: Int, limit: Int): Future[Seq[OperationView]] = {
-    logger.debug(s"Retrieving operations for account : $a - limit=$limit offset=$offset")
+    logger.debug(s"Retrieving operations for account : ${accountPath(a, w)} - limit=$limit offset=$offset")
     val currency = w.getCurrency
     val currencyName = currency.getName
     val currencyFamily = currency.getWalletType
@@ -106,7 +106,7 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
 
     for {
       operations <- retrievePartialOperations
-      erc20 <- findErc20ParialView(a, w, Some(operations.map(_.uid)), 0, Int.MaxValue)
+      erc20 <- findErc20PartialView(a, w, Some(operations.map(_.uid)), 0, Int.MaxValue)
     } yield {
       operations.map(pop => {
         val blockView = (pop.blockHash, pop.blockHeight, pop.blockTime) match {
@@ -139,9 +139,9 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
     * TODO : for a given eth op could we have several erc20 operations ?
     * If Yes Then we need to return Map[OperationUid, Seq[ERC20]]
     */
-  private def findErc20ParialView(a: Account, w: Wallet, ethOperationUids: Option[Seq[OperationUid]],
+  private def findErc20PartialView(a: Account, w: Wallet, ethOperationUids: Option[Seq[OperationUid]],
                                   offset: Int, limit: Int): Future[Map[OperationUid, EthereumTransactionView.ERC20]] = {
-    logger.info(s"Retrieving erc20 operations for account : $a - limit=$limit offset=$offset filtered by ${ethOperationUids.map(_.size)}")
+    logger.info(s"Retrieving erc20 operations for account : ${accountPath(a, w)} - limit=$limit offset=$offset filtered by ${ethOperationUids.map(_.size)}")
 
     def retrieveERC20Operations = {
       queryERC20OperationsFromEthUids[(OperationUid, EthereumTransactionView.ERC20)](a.getIndex, w.getName, ethOperationUids, offset, limit) {
@@ -161,7 +161,7 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
 
   private def findErc20FullOperationView(a: Account, w: Wallet, erc20OperationUids: Option[Seq[ERC20OperationUid]],
                                          offset: Int, limit: Int): Future[Seq[OperationView]] = {
-    logger.info(s"Retrieving erc20 operations for account : $a - limit=$limit offset=$offset filtered by ${erc20OperationUids.map(_.size)}")
+    logger.info(s"Retrieving erc20 operations for account : ${accountPath(a, w)} - limit=$limit offset=$offset filtered by ${erc20OperationUids.map(_.size)}")
 
     queryERC20OperationsFullView(a, w, erc20OperationUids, offset, limit) {
       rowToFullOperationView(w, a.getIndex)
@@ -170,7 +170,7 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
 
   private def findErc20FullOperationViewFromBlockHeight(a: Account, w: Wallet, blockHeight: Long,
                                                         offset: Int, limit: Int): Future[Seq[OperationView]] = {
-    logger.info(s"Retrieving erc20 operations for account : $a - limit=$limit offset=$offset from height ${blockHeight}")
+    logger.info(s"Retrieving erc20 operations for account : ${accountPath(a, w)} - limit=$limit offset=$offset from height ${blockHeight}")
 
     queryERC20OperationsFromBlockHeightFullView(a, w, blockHeight, offset, limit) {
       rowToFullOperationView(w, a.getIndex)
@@ -287,4 +287,7 @@ class EthereumDao(protected val db: Database) extends CoinDao with ERC20Dao with
         operationDate, BigInt(row.get[String]("status")).intValue()))
     )
   }
+
+  private def accountPath(a: Account, w: Wallet) = s"${poolName}/${w.getName}/${a.getIndex}"
+
 }

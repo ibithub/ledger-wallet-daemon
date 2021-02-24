@@ -13,7 +13,7 @@ class WalletPoolDao(poolName: String)(implicit val ec: ExecutionContext) extends
   val db: Database = new Database(DaemonConfiguration.coreDbConfig, poolName)
 
   lazy val btcDao = new BitcoinDao(db)
-  lazy val ethDao = new EthereumDao(db)
+  lazy val ethDao = new EthereumDao(db, poolName)
   lazy val xrpDao = new RippleDao(db)
   lazy val xlmDao = new StellarDao(db)
 
