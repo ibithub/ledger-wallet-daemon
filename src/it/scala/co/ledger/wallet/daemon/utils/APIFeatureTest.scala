@@ -78,10 +78,9 @@ trait APIFeatureTest extends FeatureTest {
     server.httpPost("/pools/operations/synchronize", "", andExpect = expected)
   }
 
-  def assertSyncAccount(poolName: String, walletName: String, accIdx: Int): Response = {
-    val resp = server.httpPost(s"/pools/$poolName/wallets/$walletName/accounts/$accIdx/operations/synchronize", "", andExpect = Status.Ok)
+  def awaitSyncAccount(poolName: String, walletName: String, accIdx: Int): Unit = {
     awaitSync(poolName, walletName, accIdx)
-    resp
+    // server.httpPost(s"/pools/$poolName/wallets/$walletName/accounts/$accIdx/operations/synchronize", "", andExpect = Status.Ok)
   }
 
   protected def assertCreateAccount(accountCreationBody: String, poolName: String, walletName: String, expected: Status): Response = {
@@ -168,7 +167,8 @@ trait APIFeatureTest extends FeatureTest {
       syncStatus.value == "synced" && syncStatus.asInstanceOf[Synced].atHeight > 0L
     }
 
-    var attempt = 2400
+    var attempt = 240
+    Thread.sleep(500)
     while (!isSynced && attempt > 0) {
       attempt -= 1
       Thread.sleep(500)
