@@ -19,7 +19,7 @@ class AccountsApiTest extends APIFeatureTest {
     createPool(poolName)
     assertWalletCreation(poolName, poolName, "bitcoin", Status.Ok)
     assertCreateAccount(CORRECT_BODY_BITCOIN, poolName, poolName, Status.Ok)
-    assertSyncAccount(poolName, poolName, 0)
+    awaitSyncAccount(poolName, poolName, 0)
   }
 
   override def afterAll(): Unit = {
@@ -183,9 +183,9 @@ class AccountsApiTest extends APIFeatureTest {
     assertCreateAccount(CORRECT_BODY_IDX1, poolName, wallet3, Status.Ok)
 
     // Sync
-    assertSyncAccount(poolName, wallet2, 0)
-    assertSyncAccount(poolName, wallet3, 0)
-    assertSyncAccount(poolName, wallet3, 1)
+    awaitSyncAccount(poolName, wallet2, 0)
+    awaitSyncAccount(poolName, wallet3, 0)
+    awaitSyncAccount(poolName, wallet3, 1)
 
     val countWall3A0 = transactionCountOf(poolName, wallet3, 0)
 
@@ -210,7 +210,7 @@ class AccountsApiTest extends APIFeatureTest {
     assertGetAccounts(Some(1), poolName, wallet3, Status.Ok)
 
     // Sync again and retrieve operations for a given account only (others should stay empty)
-    assertSyncAccount(poolName, wallet3, 0)
+    awaitSyncAccount(poolName, wallet3, 0)
     assert(transactionCountOf(poolName, wallet2, 0) == 0)
     val countWall3A0After = transactionCountOf(poolName, wallet3, 0)
     assert(countWall3A0After > 0)
@@ -303,7 +303,7 @@ class AccountsApiTest extends APIFeatureTest {
     val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, index = 0, Status.Ok))
     info(s"ETH address : $addresses")
     assert(addresses.size == 1)
-    assertSyncAccount(poolName, walletName, 0)
+    awaitSyncAccount(poolName, walletName, 0)
     assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 5, 0), Status.Ok)
   }
 
@@ -317,7 +317,7 @@ class AccountsApiTest extends APIFeatureTest {
     assert(addresses.size == 1)
 
     // Sync and get operations, check the two firsts pages does not have any intersections
-    assertSyncAccount(poolName, walletName, 0)
+    awaitSyncAccount(poolName, walletName, 0)
 
     val response: PackedOperationsView = parse[PackedOperationsView](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 5, 0), Status.Ok))
     val response2: PackedOperationsView = parse[PackedOperationsView](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, response.next, 5, 0), Status.Ok))
@@ -357,7 +357,7 @@ class AccountsApiTest extends APIFeatureTest {
     assertWalletCreation(poolName, walletName, "ethereum_ropsten", Status.Ok)
     assertCreateAccount(CORRECT_BODY_ETH_ROPSTEN, poolName, walletName, Status.Ok)
 
-    assertSyncAccount(poolName, walletName, 0)
+    awaitSyncAccount(poolName, walletName, 0)
     val resp = parse[List[ERC20AccountView]](assertGetTokens(poolName, walletName, 0, Status.Ok))
     info(s"Tokens : $resp")
     assert(resp.size >= 2)

@@ -29,7 +29,7 @@ class TransactionsApiTest extends APIFeatureTest {
     val walletName = "btcwalletutxo"
     assertWalletCreation(poolName, walletName, "bitcoin_testnet", Status.Ok)
     assertCreateAccount(ACCOUNT_BODY, poolName, walletName, Status.Ok)
-    assertSyncAccount(poolName, walletName, 0)
+    awaitSyncAccount(poolName, walletName, 0)
     
     val btcTxRequest: CreateBTCTransactionRequest = CreateBTCTransactionRequest("mxZcpwZ7XBdfb4JcGLzdEP8WPQaGzeUeFU",
       Some("16"), Some("NORMAL"), "100", Some(BitcoinLikePickingStrategy.DEEP_OUTPUTS_FIRST.toString), None, Some(true))
@@ -57,7 +57,7 @@ class TransactionsApiTest extends APIFeatureTest {
     val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, 0, Status.Ok))
     info(s"Addresses : $addresses")
 
-    assertSyncAccount(poolName, walletName, 0)
+    awaitSyncAccount(poolName, walletName, 0)
     assertCreateTransaction(TX_BODY_WITH_EXCLUDE_UTXO, poolName, walletName, 0, Status.Ok)
     assertCreateTransaction(TX_BODY, poolName, walletName, 0, Status.BadRequest)
     assertCreateTransaction(INVALID_FEE_LEVEL_BODY, poolName, walletName, 0, Status.BadRequest)
@@ -72,7 +72,7 @@ class TransactionsApiTest extends APIFeatureTest {
     val walletName = "btcwallet"
     assertWalletCreation(poolName, walletName, "bitcoin_testnet", Status.Ok)
     assertCreateAccount(ACCOUNT_BODY, poolName, walletName, Status.Ok)
-    assertSyncAccount(poolName, walletName, 0)
+    awaitSyncAccount(poolName, walletName, 0)
 
     val btcTxRequestNonPartial: CreateBTCTransactionRequest = CreateBTCTransactionRequest("mxZcpwZ7XBdfb4JcGLzdEP8WPQaGzeUeFU",
       Some("16"), Some("NORMAL"), "100", Some(BitcoinLikePickingStrategy.DEEP_OUTPUTS_FIRST.toString), None, Some(false))
@@ -99,7 +99,7 @@ class TransactionsApiTest extends APIFeatureTest {
     val walletName = "bitcoin_testnet"
     assertWalletCreation(poolName, walletName, "bitcoin_testnet", Status.Ok)
     assertCreateAccount(ACCOUNT_BODY, poolName, walletName, Status.Ok)
-    assertSyncAccount(poolName, walletName, 0)
+    awaitSyncAccount(poolName, walletName, 0)
     assertSignTransaction(TESTNET_TX_TO_SIGN_BODY, poolName, "bitcoin_testnet", 0, Status.InternalServerError)
     assertGetAccount(poolName, "bitcoin_testnet", 0, Status.Ok)
   }

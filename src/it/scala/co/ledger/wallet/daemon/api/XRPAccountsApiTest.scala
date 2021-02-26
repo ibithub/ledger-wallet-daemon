@@ -44,7 +44,7 @@ class XRPAccountsApiTest extends APIFeatureTest {
     val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, index = 0, Status.Ok))
     assert(addresses.nonEmpty)
     info(s"Here are addresses : $addresses")
-    assertSyncAccount(poolName, walletName, 0)
+    awaitSyncAccount(poolName, walletName, 0)
     val operations = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 1000, 0), Status.Ok))
     assert(operations.nonEmpty)
   }
@@ -56,7 +56,7 @@ class XRPAccountsApiTest extends APIFeatureTest {
     val addresses = parse[Seq[FreshAddressView]](assertGetFreshAddresses(poolName, walletName, index = 0, Status.Ok))
     assert(addresses.nonEmpty)
     info(s"Here are addresses : $addresses")
-    assertSyncAccount(poolName, walletName, 0)
+    awaitSyncAccount(poolName, walletName, 0)
     val operations = parse[Map[String, JsonNode]](assertGetAccountOps(poolName, walletName, 0, OperationQueryParams(None, None, 1000, 0), Status.Ok))
     assert(operations.nonEmpty)
 
